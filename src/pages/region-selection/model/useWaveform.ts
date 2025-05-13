@@ -1,27 +1,12 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin, { Region } from 'wavesurfer.js/dist/plugins/regions';
 import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram'
 import { RegionColorManager } from './regionColors';
 import { createRegionHandlers } from './regionHandlers';
 
-// // Define types for WaveSurfer regions
-// export interface WaveSurferRegion {
-//   id: string;
-//   start: number;
-//   end: number;
-//   color?: string;
-//   element: HTMLElement;
-//   data?: {
-//     color: string;
-//     label?: string;
-//   };
-//   remove: () => void;
-//   setOption: (option: Partial<Pick<RegionParams, 'color' | 'start' | 'end' | 'drag' | 'content' | 'id' | 'resize' | 'resizeStart' | 'resizeEnd'>>) => void;
-// }
-
 export interface UseWaveformOptions {
-  audioUrl: string;
+  audioRef: React.RefObject<HTMLAudioElement> | null;
   waveColor?: string;
   progressColor?: string;
   height?: number;
@@ -31,7 +16,7 @@ export interface UseWaveformOptions {
 }
 
 export function useWaveform({
-  audioUrl,
+  audioRef,
   waveColor = 'violet',
   progressColor = 'purple',
   height = 100,
@@ -69,6 +54,26 @@ export function useWaveform({
     if (onRegionSelected) {
       onRegionSelected(region);
     }
+
+    if (region && croppedWaveSurferRef.current && croppedRef.current) {
+      const { start, end } = region
+      // 1. compute zoom
+      const duration = end - start;
+      const width = croppedRef.current.clientWidth;
+      const pxPerSec = width / duration;
+
+      croppedWaveSurferRef.current.zoom(pxPerSec);
+
+      croppedWaveSurferRef.current.setScrollTime(start);
+
+      requestAnimationFrame(() => {
+        if (croppedWaveSurferRef.current) {
+          croppedWaveSurferRef.current.seekTo(start / croppedWaveSurferRef.current.getDuration());
+        }
+      });
+
+    }
+
   }, [onRegionSelected]);
 
 
@@ -111,60 +116,45 @@ export function useWaveform({
   }, [onRegionCreated, onRegionRemoved, updateSelectedRegion]);
 
   // Initialize the cropped waveform
-  useEffect(() => {
-    if (!croppedRef.current) return;
+  const initializeCroppedWaveform = useCallback(() => {
+    if (!croppedRef.current || !audioRef?.current) return;
 
     croppedWaveSurferRef.current = WaveSurfer.create({
       container: croppedRef.current,
       waveColor: '#ddd',
       progressColor: '#555',
+      backend: 'MediaElement',
+      media: audioRef.current,
+      autoCenter: false,
+      autoScroll: false,
+      hideScrollbar: true,
     });
 
-    const buffer = wavesurferRef.current?.getDecodedData();
-    if (buffer && selectedRegion.start && selectedRegion.end) {
-      const sr = buffer.sampleRate;
-      const startSample = Math.floor(selectedRegion.start * sr);
-      const endSample = Math.floor(selectedRegion.end * sr);
-      const segmentLength = endSample - startSample;
 
-      // Slice each channel
-      const channelData: Float32Array[] = [];
-      for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
-        channelData.push(
-          buffer.getChannelData(ch).slice(startSample, endSample)
-        );
-      }
+    croppedWaveSurferRef.current.registerPlugin(
+      Spectrogram.create({
+        labels: true,
+        height: 800,
+        splitChannels: false,
+        scale: 'linear', // 'mel', 'linear', 'logarithmic', 'bark', 'erb'
+        frequencyMax: 4000,
+        frequencyMin: 0,
+        fftSamples: 512,
+        labelsBackground: 'rgba(0, 0, 0, 0.1)',
+      }),
+    )
 
-      // Load cropped data into second waveform
-      croppedWaveSurferRef.current?.load('', channelData, segmentLength / sr);
-
-      croppedWaveSurferRef.current.registerPlugin(
-        Spectrogram.create({
-          labels: true,
-          height: 800,
-          splitChannels: false,
-          scale: 'linear', // 'mel', 'linear', 'logarithmic', 'bark', 'erb'
-          frequencyMax: 4000,
-          frequencyMin: 0,
-          fftSamples: 512,
-          labelsBackground: 'rgba(0, 0, 0, 0.1)',
-        }),
-      )
-    }
 
     return () => {
       croppedWaveSurferRef.current?.destroy();
     };
   }, [croppedRef, wavesurferRef, selectedRegion]);
 
-  useEffect(() => {
-    console.log({ start: selectedRegionRef.current?.start, end: selectedRegionRef.current?.end });
-  }, [selectedRegionRef.current?.start, selectedRegionRef.current?.end]);
 
   // Initialize waveform on explicit user action
   const initialize = useCallback(() => {
     // Only initialize once
-    if (isInitialized || !containerRef.current) return;
+    if (isInitialized || !containerRef.current || !audioRef?.current) return;
 
 
     try {
@@ -179,6 +169,9 @@ export function useWaveform({
         waveColor,
         progressColor,
         height,
+        backend: 'MediaElement',
+        media: audioRef.current,
+        dragToSeek: true,
         plugins: [regionsPlugin]
       });
 
@@ -198,16 +191,16 @@ export function useWaveform({
       // Setup event listeners
       setupEventListeners();
 
-      // Start loading the audio
-      wavesurfer.load(audioUrl);
-
       // Store the instance
       wavesurferRef.current = wavesurfer;
+
+      initializeCroppedWaveform();
+
       setIsInitialized(true);
     } catch (error) {
       console.error('Failed to initialize WaveSurfer:', error);
     }
-  }, [audioUrl, height, progressColor, waveColor, isInitialized, getRegionsPlugin, setupEventListeners]);
+  }, [audioRef, height, progressColor, waveColor, isInitialized, getRegionsPlugin, setupEventListeners]);
 
   // Clean up on unmount
   const destroy = useCallback(() => {
