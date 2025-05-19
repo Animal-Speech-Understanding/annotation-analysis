@@ -24,22 +24,22 @@ const parseSelections = (data: string): Selection[] => {
   const lines = data.split('\n');
   const parsedSelections: Selection[] = [];
   const processedIds = new Set<number>();
-  
+
   for (let i = 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (line === '') continue;
-    
+
     const parts = line.split('\t');
-    
+
     if (parts.length >= 5) {
       const id = parseInt(parts[0]);
-      
+
       if (processedIds.has(id)) {
         continue;
       }
-      
+
       processedIds.add(id);
-      
+
       parsedSelections.push({
         id: id.toString(),
         beginTime: parseFloat(parts[3]),
@@ -47,6 +47,6 @@ const parseSelections = (data: string): Selection[] => {
       });
     }
   }
-  
+
   return parsedSelections;
 }; 

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useWaveform } from '../model/useWaveform';
-import { MarkerManager } from '@/pages/click-annotation/ui/MarkerManager';
-import { MarkerVisibility, Selection } from '@/pages/click-annotation/model';
-import { MarkerControls } from '@/pages/click-annotation/ui';
+import { MarkerManager } from '@entities/MarkerManager';
+import { MarkerVisibility, Selection } from '@entities/MarkerManager/model';
+import { MarkerControls } from '@entities/MarkerManager';
 
 interface RegionWaveformProps {
   audioUrl: string;

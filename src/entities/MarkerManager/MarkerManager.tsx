@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Selection, MarkerVisibility } from '../model/types';
+import { Selection, MarkerVisibility } from './model/types';
 
 interface MarkerManagerProps {
   wavesurfer: WaveSurfer | null;

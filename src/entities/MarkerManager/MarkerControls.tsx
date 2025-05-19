@@ -1,5 +1,5 @@
 import React from 'react';
-import { MarkerVisibility } from '../model/types';
+import { MarkerVisibility } from './model/types';
 
 interface MarkerControlsProps {
   visibility: MarkerVisibility;
@@ -21,15 +21,15 @@ export const MarkerControls: React.FC<MarkerControlsProps> = ({
   };
 
   return (
-    <div style={{ 
+    <div style={{
       margin: '10px 0',
-      display: 'flex', 
+      display: 'flex',
       gap: '10px'
     }}>
       <label style={{ display: 'flex', alignItems: 'center' }}>
-        <input 
-          type="checkbox" 
-          checked={visibility.begin} 
+        <input
+          type="checkbox"
+          checked={visibility.begin}
           onChange={() => handleCheckboxChange('begin')}
           style={{ marginRight: '5px' }}
         />
@@ -38,9 +38,9 @@ export const MarkerControls: React.FC<MarkerControlsProps> = ({
       </label>
 
       <label style={{ display: 'flex', alignItems: 'center' }}>
-        <input 
-          type="checkbox" 
-          checked={visibility.middle} 
+        <input
+          type="checkbox"
+          checked={visibility.middle}
           onChange={() => handleCheckboxChange('middle')}
           style={{ marginRight: '5px' }}
         />
@@ -49,9 +49,9 @@ export const MarkerControls: React.FC<MarkerControlsProps> = ({
       </label>
 
       <label style={{ display: 'flex', alignItems: 'center' }}>
-        <input 
-          type="checkbox" 
-          checked={visibility.end} 
+        <input
+          type="checkbox"
+          checked={visibility.end}
           onChange={() => handleCheckboxChange('end')}
           style={{ marginRight: '5px' }}
         />

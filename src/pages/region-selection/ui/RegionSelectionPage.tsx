@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RegionWaveform } from './RegionWaveform';
-import { fetchSelections } from '@/pages/click-annotation/api';
-import { Selection } from '@/pages/click-annotation/model';
+import { fetchSelections } from '@entities/MarkerManager';
+import { Selection } from '@/entities/MarkerManager/model';
 
 /**
  * Page component for selecting regions in an audio waveform
