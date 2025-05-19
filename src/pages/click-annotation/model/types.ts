@@ -17,11 +17,3 @@ export interface MarkerVisibility {
 }
 
 export type MarkerType = 'begin' | 'middle' | 'end';
-
-export interface WaveformMarker {
-  time: number;
-  color: string;
-  label: string;
-  type: MarkerType;
-  selectionId: string;
-} 

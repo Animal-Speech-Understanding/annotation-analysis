@@ -1,12 +1,17 @@
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useWaveform } from '../model/useWaveform';
+import { MarkerManager } from '@/pages/click-annotation/ui/MarkerManager';
+import { MarkerVisibility, Selection } from '@/pages/click-annotation/model';
+import { MarkerControls } from '@/pages/click-annotation/ui';
 
 interface RegionWaveformProps {
   audioUrl: string;
+  selections: Selection[];
 }
 
 export const RegionWaveform: React.FC<RegionWaveformProps> = ({
   audioUrl,
+  selections,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const {
@@ -20,48 +25,70 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
     clearRegions,
     selectedRegion,
     removeRegion,
+    wavesurfer,
+    croppedWaveSurfer,
+    destroy
   } = useWaveform({
     audioRef: audioRef as React.RefObject<HTMLAudioElement>,
-    onRegionCreated: (region) => {
-      console.log('region-created', region);
-    },
   });
+
+  const [markerVisibility, setMarkerVisibility] = useState<MarkerVisibility>({
+    begin: true,
+    middle: true,
+    end: true
+  });
+
+  const handleVisibilityChange = (visibility: MarkerVisibility) => {
+    setMarkerVisibility(visibility);
+  };
+
+  useEffect(() => {
+    if (!isInitialized) {
+      initialize();
+    }
+  }, [isInitialized, initialize]);
+
+  useEffect(() => {
+    return () => {
+      destroy();
+    };
+  }, [destroy]);
 
   return (
     <div>
+      <MarkerControls
+        visibility={markerVisibility}
+        onVisibilityChange={handleVisibilityChange}
+      />
       <audio
         src={audioUrl}
         ref={audioRef}
         style={{ display: 'none' }}
       />
+
+      {!isLoaded && (
+        <div style={{ textAlign: "center", padding: "10px", color: "#666" }}>
+          Loading waveform...
+        </div>
+      )}
       <div
         ref={containerRef}
         style={{
-          border: "1px solid #ccc",
-          borderRadius: "4px",
-          padding: "10px",
-          marginBottom: "20px",
-          minHeight: "100px"
+          minHeight: "100px",
+          position: "relative",
         }}
-      />
+      >
 
-      <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-        {!isInitialized && (
-          <button
-            onClick={initialize}
-            style={{
-              padding: "8px 16px",
-              background: "blue",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer"
-            }}
-          >
-            Initialize Waveform
-          </button>
+        {wavesurfer && (
+          <MarkerManager
+            wavesurfer={wavesurfer}
+            selections={selections}
+            visibility={markerVisibility}
+          />
         )}
+      </div>
 
+      <div style={{ display: "flex", gap: "10px", marginBottom: "20px", marginTop: "20px" }}>
         <button
           onClick={playPause}
           style={{
@@ -96,11 +123,7 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
 
         {selectedRegion.region && (
           <button
-            onClick={() => {
-              if (selectedRegion.region) {
-                removeRegion(selectedRegion.region);
-              }
-            }}
+            onClick={() => removeRegion(selectedRegion.region!)}
             style={{
               padding: "8px 16px",
               background: "red",
@@ -117,17 +140,6 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
         )}
       </div>
 
-      {!isInitialized && (
-        <div style={{ textAlign: "center", padding: "10px", color: "#666" }}>
-          Click "Initialize Waveform" to load audio visualization
-        </div>
-      )}
-
-      {isInitialized && !isLoaded && (
-        <div style={{ textAlign: "center", padding: "10px", color: "#666" }}>
-          Loading waveform...
-        </div>
-      )}
 
       <div style={{
         marginTop: "20px",
@@ -135,7 +147,7 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
         backgroundColor: "#f8f0f8",
         borderRadius: "4px",
         border: "1px solid #e0c0e0",
-        display: selectedRegion.region ? 'block' : 'none'
+        visibility: selectedRegion.region ? 'visible' : 'hidden'
       }}>
         <h3 style={{ marginTop: 0 }}>Selected Region Details
         </h3>
@@ -161,13 +173,22 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
         <div
           ref={croppedRef}
           style={{
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            padding: "10px",
+            marginTop: "15px",
             marginBottom: "20px",
-            minHeight: "100px"
+            minHeight: "100px",
+            position: "relative",
           }}
-        />
+        >
+          {croppedWaveSurfer && selectedRegion.region && (
+            <MarkerManager
+              wavesurfer={croppedWaveSurfer}
+              selections={selections}
+              visibility={markerVisibility}
+              beginTime={selectedRegion.region.start}
+              endTime={selectedRegion.region.end}
+            />
+          )}
+        </div>
       </div>
 
 

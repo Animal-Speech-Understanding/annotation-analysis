@@ -6,6 +6,8 @@ interface MarkerManagerProps {
   wavesurfer: WaveSurfer | null;
   selections: Selection[];
   visibility: MarkerVisibility;
+  beginTime?: number;
+  endTime?: number;
 }
 
 interface MarkerProps {
@@ -39,60 +41,83 @@ const Marker: React.FC<MarkerProps> = ({
 /**
  * Manages the creation and positioning of markers on the waveform
  */
-export const MarkerManager: React.FC<MarkerManagerProps> = ({ 
-  wavesurfer, 
-  selections, 
-  visibility
+export const MarkerManager: React.FC<MarkerManagerProps> = ({
+  wavesurfer,
+  selections,
+  visibility,
+  beginTime: beginTimeProp,
+  endTime: endTimeProp
 }) => {
   if (!wavesurfer) return null;
-  
-  const duration = wavesurfer.getDuration();
-  if (!duration) return null;
-  
+
+  const totalWaveformDuration = wavesurfer.getDuration();
+  if (!totalWaveformDuration) return null;
+
+  const beginTime = beginTimeProp !== undefined ? beginTimeProp : 0;
+  const endTime = endTimeProp !== undefined ? endTimeProp : totalWaveformDuration;
+
   const markers = useMemo(() => {
+    const visibleDuration = endTime - beginTime;
+
+    if (visibleDuration <= 1e-6) {
+      return [];
+    }
+
     const allMarkers: React.ReactElement[] = [];
-    
+
     selections.forEach(selection => {
+      const addMarkerIfVisible = (
+        key: string,
+        actualTime: number,
+        color: string,
+        title: string
+      ) => {
+        if (actualTime >= beginTime && actualTime <= endTime) {
+          const relativeTime = actualTime - beginTime;
+
+          allMarkers.push(
+            <Marker
+              key={key}
+              time={relativeTime}
+              duration={visibleDuration}
+              color={color}
+              title={title}
+            />
+          );
+        }
+      };
+
       if (visibility.begin) {
-        allMarkers.push(
-          <Marker
-            key={`begin-${selection.id}`}
-            time={selection.beginTime}
-            duration={duration}
-            color="#00bb00"
-            title={`Begin ${selection.id}`}
-          />
+        addMarkerIfVisible(
+          `begin-${selection.id}`,
+          selection.beginTime,
+          "#00bb0033",
+          `Begin ${selection.id}`
         );
       }
-      
+
       if (visibility.middle) {
         const middleTime = (selection.beginTime + selection.endTime) / 2;
-        allMarkers.push(
-          <Marker
-            key={`middle-${selection.id}`}
-            time={middleTime}
-            duration={duration}
-            color="#0088ff"
-            title={`Middle ${selection.id}`}
-          />
+        addMarkerIfVisible(
+          `middle-${selection.id}`,
+          middleTime,
+          "#0088ff33",
+          `Middle ${selection.id}`
         );
       }
-      
+
       if (visibility.end) {
-        allMarkers.push(
-          <Marker
-            key={`end-${selection.id}`}
-            time={selection.endTime}
-            duration={duration}
-            color="#ff0000"
-            title={`End ${selection.id}`}
-          />
+        addMarkerIfVisible(
+          `end-${selection.id}`,
+          selection.endTime,
+          "#ff000033",
+          `End ${selection.id}`
         );
       }
     });
-    
+
     return allMarkers;
-  }, [selections, duration, visibility]);
+  }, [selections, visibility, beginTime, endTime]);
 
   return (
     <div style={{
