@@ -1,13 +1,14 @@
 import React, { useMemo } from 'react';
 import WaveSurfer from 'wavesurfer.js';
-import { Selection, MarkerVisibility } from './model/types';
+import { SelectionGroup, SelectionVisibility } from './model/types';
 
 interface MarkerManagerProps {
   wavesurfer: WaveSurfer | null;
-  selections: Selection[];
-  visibility: MarkerVisibility;
+  selectionGroups: SelectionGroup[];
+  visibility: SelectionVisibility;
   beginTime?: number;
   endTime?: number;
+  currentAudioId?: string;
 }
 
 interface MarkerProps {
@@ -43,10 +44,11 @@ const Marker: React.FC<MarkerProps> = ({
  */
 export const MarkerManager: React.FC<MarkerManagerProps> = ({
   wavesurfer,
-  selections,
+  selectionGroups,
   visibility,
   beginTime: beginTimeProp,
-  endTime: endTimeProp
+  endTime: endTimeProp,
+  currentAudioId
 }) => {
   if (!wavesurfer) return null;
 
@@ -65,59 +67,52 @@ export const MarkerManager: React.FC<MarkerManagerProps> = ({
 
     const allMarkers: React.ReactElement[] = [];
 
-    selections.forEach(selection => {
-      const addMarkerIfVisible = (
-        key: string,
-        actualTime: number,
-        color: string,
-        title: string
-      ) => {
+    // Process each selection group
+    selectionGroups.forEach(group => {
+      // Skip if this group is not visible
+      if (visibility[group.id] === false) {
+        return;
+      }
+
+      // Process each selection in the group, filtering by current audio if specified
+      const relevantSelections = currentAudioId
+        ? group.selections.filter(selection => {
+          // Check audioId field first (exact match)
+          if (selection.audioId) {
+            return selection.audioId.toLowerCase() === currentAudioId.toLowerCase();
+          }
+
+          // Fallback to filename check
+          if (selection.name) {
+            return selection.name.toLowerCase().includes(currentAudioId.toLowerCase());
+          }
+
+          return false;
+        })
+        : group.selections;
+
+      // Only show begin times for relevant selections
+      relevantSelections.forEach(selection => {
+        const actualTime = selection.beginTime;
+
         if (actualTime >= beginTime && actualTime <= endTime) {
           const relativeTime = actualTime - beginTime;
 
           allMarkers.push(
             <Marker
-              key={key}
+              key={`begin-${group.id}-${selection.id}`}
               time={relativeTime}
               duration={visibleDuration}
-              color={color}
-              title={title}
+              color={group.color}
+              title={`${group.name} ${selection.id}`}
             />
           );
         }
-      };
-
-      if (visibility.begin) {
-        addMarkerIfVisible(
-          `begin-${selection.id}`,
-          selection.beginTime,
-          "#00bb0033",
-          `Begin ${selection.id}`
-        );
-      }
-
-      if (visibility.middle) {
-        const middleTime = (selection.beginTime + selection.endTime) / 2;
-        addMarkerIfVisible(
-          `middle-${selection.id}`,
-          middleTime,
-          "#0088ff33",
-          `Middle ${selection.id}`
-        );
-      }
-
-      if (visibility.end) {
-        addMarkerIfVisible(
-          `end-${selection.id}`,
-          selection.endTime,
-          "#ff000033",
-          `End ${selection.id}`
-        );
-      }
+      });
     });
 
     return allMarkers;
-  }, [selections, visibility, beginTime, endTime]);
+  }, [selectionGroups, visibility, beginTime, endTime, currentAudioId]);
 
   return (
     <div style={{

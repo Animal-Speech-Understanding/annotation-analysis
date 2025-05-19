@@ -1,4 +1,5 @@
 export { MarkerManager } from "./MarkerManager";
 export { MarkerControls } from "./MarkerControls";
-export { fetchSelections } from "./api/selectionsApi";
+export { SelectionGroupControls } from "./SelectionGroupControls";
+export { fetchSelections, fetchMultipleSelections } from "./api/selectionsApi";
 export * from "./model/types";
