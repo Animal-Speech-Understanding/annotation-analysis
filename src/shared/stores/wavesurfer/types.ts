@@ -33,6 +33,11 @@ export interface SelectedRegion {
   region: Region | null;
   start?: number;
   end?: number;
+  extractedAudioBlob?: Blob;
+  extractedAudioUrl?: string;
+  isExtracting?: boolean;
+  extractionError?: string;
+  isPlayingRegion?: boolean;
 }
 
 /**
@@ -104,6 +109,14 @@ export interface WaveSurferActions {
   initializeCropped: (container: HTMLDivElement) => Promise<void>;
   destroy: () => void;
 
+  // Audio extraction
+  extractRegionAudio: (region: Region) => Promise<void>;
+  clearExtractedAudio: () => void;
+
+  // Region playback
+  playExtractedRegion: () => Promise<void>;
+  pauseExtractedRegion: () => void;
+
   // Configuration
   setConfig: (config: Partial<WaveSurferConfig>) => void;
   setSpectrogramConfig: (config: Partial<SpectrogramConfig>) => void;
@@ -155,6 +168,8 @@ export interface UseWaveSurferReturn {
   playPause: () => void;
   clearRegions: () => void;
   removeRegion: (region: Region) => void;
+  playExtractedRegion: () => void;
+  pauseExtractedRegion: () => void;
 
   // Setup functions
   setupMain: (container: HTMLDivElement, audioElement: HTMLAudioElement) => void;

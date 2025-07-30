@@ -9,6 +9,13 @@ export {
 } from './hooks';
 export { waveSurferActions } from './actions';
 export { RegionColorManager, REGION_COLORS } from './regionColors';
+export {
+  extractAudioRegion,
+  createAudioBlobURL,
+  revokeBlobURL,
+  validateTimeRange,
+  estimateRegionSize
+} from './audioUtils';
 
 // Type exports
 export type {

@@ -97,6 +97,16 @@ export const useWaveSurfer = (callbacks?: RegionEventCallbacks): UseWaveSurferRe
     [storeRemoveRegion]
   );
 
+  const playExtractedRegion = useCallback(() => {
+    const store = useWaveSurferStore.getState();
+    store.playExtractedRegion();
+  }, []);
+
+  const pauseExtractedRegion = useCallback(() => {
+    const store = useWaveSurferStore.getState();
+    store.pauseExtractedRegion();
+  }, []);
+
   return {
     // State
     isInitialized: initializationState.isInitialized,
@@ -115,6 +125,8 @@ export const useWaveSurfer = (callbacks?: RegionEventCallbacks): UseWaveSurferRe
     playPause,
     clearRegions,
     removeRegion,
+    playExtractedRegion,
+    pauseExtractedRegion,
 
     // Setup functions
     setupMain,
@@ -138,6 +150,11 @@ export const useWaveSurferState = () => {
       selectedRegion: state.selectedRegion,
       mainWaveSurfer: state.mainWaveSurfer,
       croppedWaveSurfer: state.croppedWaveSurfer,
+      // Audio extraction state
+      isExtracting: state.selectedRegion.isExtracting,
+      extractionError: state.selectedRegion.extractionError,
+      hasExtractedAudio: !!state.selectedRegion.extractedAudioUrl,
+      isPlayingRegion: state.selectedRegion.isPlayingRegion || false,
     }))
   );
 };

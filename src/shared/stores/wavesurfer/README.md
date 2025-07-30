@@ -9,6 +9,7 @@ This directory contains a modern, scalable state management solution for WaveSur
 - **Testable**: Business logic separated from React components
 - **Maintainable**: Clear separation of concerns
 - **Reusable**: Store can be used across multiple components
+- **Audio Extraction**: Intelligent region cutting for high-resolution analysis
 
 ## 📁 Structure
 
@@ -143,11 +144,21 @@ interface WaveSurferState {
   // State
   playbackState: PlaybackState;
   initializationState: InitializationState;
-  selectedRegion: SelectedRegion;
+  selectedRegion: SelectedRegion; // Includes extracted audio data
   
   // Configuration
   config: WaveSurferConfig;
   spectrogramConfig: SpectrogramConfig;
+}
+
+interface SelectedRegion {
+  region: Region | null;
+  start?: number;
+  end?: number;
+  extractedAudioBlob?: Blob;      // 🆕 Extracted audio data
+  extractedAudioUrl?: string;     // 🆕 Blob URL for extracted audio
+  isExtracting?: boolean;         // 🆕 Extraction progress state
+  extractionError?: string;       // 🆕 Error handling
 }
 ```
 
@@ -156,6 +167,8 @@ The store provides actions for:
 - **Initialization**: `initializeMain()`, `initializeCropped()`
 - **Playback**: `play()`, `pause()`, `playPause()`, `seekTo()`
 - **Region Management**: `selectRegion()`, `clearRegions()`, `removeRegion()`
+- **Audio Extraction**: `extractRegionAudio()`, `clearExtractedAudio()` 🆕
+- **Region Playback**: `playExtractedRegion()` 🆕
 - **Configuration**: `setConfig()`, `setSpectrogramConfig()`
 
 ## 🎭 Region Management
@@ -171,10 +184,61 @@ import { REGION_COLORS } from '@/shared/stores/wavesurfer';
 
 ### Event Handling
 Region events are handled automatically:
-- **Creation**: Auto-assigns color, selects region
+- **Creation**: Auto-assigns color, selects region, triggers audio extraction
 - **Update**: Updates selected region if it's the current one
-- **Click**: Selects the clicked region
-- **Zoom**: Automatically zooms cropped view to selected region
+- **Click**: Selects the clicked region, starts audio extraction
+- **Audio Extraction**: Automatically cuts audio data and creates new waveform
+
+### 🔪 Audio Extraction Process
+
+When a region is selected, the system automatically:
+
+1. **Validates** the time range (minimum 1ms, maximum 1 hour)
+2. **Extracts** audio data using Web Audio API
+3. **Creates** a WAV blob containing only the selected region
+4. **Generates** a new waveform and spectrogram from the extracted audio
+5. **Displays** extraction status with visual feedback
+
+```typescript
+// The extraction happens automatically, but you can monitor the process:
+const { selectedRegion } = useWaveSurferState();
+
+if (selectedRegion.isExtracting) {
+  console.log('🔄 Extracting audio...');
+}
+
+if (selectedRegion.extractedAudioUrl) {
+  console.log('✅ Audio extracted successfully');
+}
+
+if (selectedRegion.extractionError) {
+  console.error('❌ Extraction failed:', selectedRegion.extractionError);
+}
+```
+
+### Benefits of Audio Extraction
+
+- **High Resolution**: No stretching artifacts for small regions
+- **Performance**: Prevents crashes with very small time ranges
+- **Quality**: Full audio fidelity maintained in extracted regions
+- **Analysis**: Better spectrogram detail for precise audio analysis
+- **Region Playback**: Play extracted audio regions independently 🆕
+- **Error Recovery**: Automatic error clearing when selecting new regions 🆕
+
+### 🎮 **Region Controls**
+
+The region details panel now includes dedicated controls with synchronized playback:
+
+- **▶️ Play Region / ⏸️ Pause Region**: Synced with cropped WaveSurfer player
+- **🗑️ Remove Region**: Removes the selected region from the waveform
+- **🔄 Status Indicators**: Real-time feedback during audio extraction
+- **📍 Visual Playback Indicators**: Shows active playback in the cropped view
+
+#### **Synchronized Playback Features**:
+- Button automatically switches between Play (▶️) and Pause (⏸️) states
+- Progress cursor moves through the cropped waveform during playback
+
+These controls only appear when a region is selected, keeping the interface clean and contextual.
 
 ## 🧪 Testing
 

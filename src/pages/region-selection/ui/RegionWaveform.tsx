@@ -22,10 +22,13 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
     isPlaying,
     isLoaded,
     isInitialized,
+    error,
     playPause,
     clearRegions,
     selectedRegion,
     removeRegion,
+    playExtractedRegion,
+    pauseExtractedRegion,
     mainWaveSurfer: wavesurfer,
     croppedWaveSurfer,
     setupMain,
@@ -191,24 +194,6 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
         >
           Clear Regions
         </button>
-
-        {selectedRegion.region && (
-          <button
-            onClick={() => removeRegion(selectedRegion.region!)}
-            style={{
-              padding: "8px 16px",
-              background: "red",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              opacity: isInitialized ? 1 : 0.5
-            }}
-            disabled={!isInitialized}
-          >
-            Remove Region
-          </button>
-        )}
       </div>
 
 
@@ -220,8 +205,8 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
         border: "1px solid #e0c0e0",
         visibility: selectedRegion.region ? 'visible' : 'hidden'
       }}>
-        <h3 style={{ marginTop: 0 }}>Selected Region Details
-        </h3>
+        <h3 style={{ marginTop: 0 }}>Selected Region Details</h3>
+
         <div>
           Color:
           <div style={{
@@ -234,12 +219,153 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
             marginLeft: "10px"
           }}></div>
         </div>
+
         {selectedRegion.region && (
           <>
             <p>Start time: {selectedRegion.region.start.toFixed(3)} seconds</p>
             <p>End time: {selectedRegion.region.end.toFixed(3)} seconds</p>
             <p>Duration: {(selectedRegion.region.end - selectedRegion.region.start).toFixed(3)} seconds</p>
+
+            {/* Region action buttons */}
+            <div style={{
+              display: "flex",
+              gap: "10px",
+              marginTop: "15px",
+              marginBottom: "15px"
+            }}>
+              {selectedRegion.extractedAudioUrl && (
+                <>
+                  {!selectedRegion.isPlayingRegion ? (
+                    <button
+                      onClick={playExtractedRegion}
+                      style={{
+                        padding: "8px 16px",
+                        background: "#4caf50",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px"
+                      }}
+                      title="Play this extracted audio region"
+                    >
+                      ▶️ Play Region
+                    </button>
+                  ) : (
+                    <button
+                      onClick={pauseExtractedRegion}
+                      style={{
+                        padding: "8px 16px",
+                        background: "#ff5722",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px"
+                      }}
+                      title="Pause region playback"
+                    >
+                      ⏸️ Pause Region
+                    </button>
+                  )}
+                </>
+              )}
+
+              {selectedRegion.isExtracting && (
+                <div style={{
+                  padding: "8px 16px",
+                  background: "#e3f2fd",
+                  color: "#1976d2",
+                  border: "1px solid #bbdefb",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px"
+                }}>
+                  🔄 Preparing audio...
+                </div>
+              )}
+
+              <button
+                onClick={() => removeRegion(selectedRegion.region!)}
+                style={{
+                  padding: "8px 16px",
+                  background: "#f44336",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px"
+                }}
+                title="Remove this region"
+              >
+                🗑️ Remove Region
+              </button>
+            </div>
           </>
+        )}
+
+        {/* Audio extraction status */}
+        {selectedRegion.isExtracting && (
+          <div style={{
+            padding: "10px",
+            backgroundColor: "#e3f2fd",
+            borderRadius: "4px",
+            margin: "10px 0",
+            color: "#1976d2"
+          }}>
+            🔄 Extracting audio region...
+          </div>
+        )}
+
+        {selectedRegion.extractionError && (
+          <div style={{
+            padding: "10px",
+            backgroundColor: "#ffebee",
+            borderRadius: "4px",
+            margin: "10px 0",
+            color: "#d32f2f"
+          }}>
+            ❌ Extraction failed: {selectedRegion.extractionError}
+          </div>
+        )}
+
+        {/* Show general error messages (like minimum duration notifications) */}
+        {error && (
+          <div style={{
+            padding: "10px",
+            backgroundColor: error.includes('minimum duration') ? "#e3f2fd" : "#ffebee",
+            borderRadius: "4px",
+            margin: "10px 0",
+            color: error.includes('minimum duration') ? "#1976d2" : "#d32f2f"
+          }}>
+            {error.includes('minimum duration') ? '📏' : '⚠️'} {error}
+          </div>
+        )}
+
+        {selectedRegion.extractedAudioUrl && !selectedRegion.isExtracting && (
+          <div style={{
+            padding: "10px",
+            backgroundColor: "#e8f5e8",
+            borderRadius: "4px",
+            margin: "10px 0",
+            color: "#2e7d32",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          }}>
+            <span>✅ Audio extracted successfully</span>
+          </div>
         )}
         <div
           ref={croppedRef}
@@ -248,6 +374,14 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
             marginBottom: "20px",
             minHeight: "100px",
             position: "relative",
+            border: selectedRegion.isPlayingRegion
+              ? "2px solid #4caf50"
+              : "2px solid transparent",
+            borderRadius: "4px",
+            transition: "border-color 0.3s ease",
+            backgroundColor: selectedRegion.isPlayingRegion
+              ? "rgba(76, 175, 80, 0.05)"
+              : "transparent",
           }}
         >
           {croppedWaveSurfer && selectedRegion.region && (
@@ -259,6 +393,20 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
               endTime={selectedRegion.region.end}
               currentAudioId={audioId}
             />
+          )}
+
+          {!selectedRegion.extractedAudioUrl && !selectedRegion.isExtracting && selectedRegion.region && (
+            <div style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              color: "#666",
+              fontSize: "14px",
+              textAlign: "center"
+            }}>
+              🔄 Processing region audio...
+            </div>
           )}
         </div>
       </div>

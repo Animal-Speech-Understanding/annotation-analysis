@@ -11,6 +11,19 @@ import {
   InitializationState,
   SelectedRegion,
 } from './types';
+import {
+  extractAudioRegion,
+  createAudioBlobURL,
+  revokeBlobURL,
+  validateTimeRange
+} from './audioUtils';
+
+// Forward declare to avoid circular dependency
+let resetEventListeners: (() => void) | null = null;
+
+export const setEventListenersReset = (resetFn: () => void) => {
+  resetEventListeners = resetFn;
+};
 
 /**
  * Default configuration values
@@ -51,6 +64,11 @@ const DEFAULT_SELECTED_REGION: SelectedRegion = {
   region: null,
   start: undefined,
   end: undefined,
+  extractedAudioBlob: undefined,
+  extractedAudioUrl: undefined,
+  isExtracting: false,
+  extractionError: undefined,
+  isPlayingRegion: false,
 };
 
 /**
@@ -150,14 +168,33 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
 
         // Region management
         selectRegion: (region) => {
-          const { callbacks } = get();
+          const { callbacks, selectedRegion: currentSelection } = get();
 
+          // Clean up previous extracted audio URL
+          if (currentSelection.extractedAudioUrl) {
+            revokeBlobURL(currentSelection.extractedAudioUrl);
+          }
+
+          // Clear any existing errors when selecting a new region
           set(
-            {
+            (state) => ({
               selectedRegion: region
-                ? { region, start: region.start, end: region.end }
+                ? {
+                  region,
+                  start: region.start,
+                  end: region.end,
+                  extractedAudioBlob: undefined,
+                  extractedAudioUrl: undefined,
+                  isExtracting: false,
+                  extractionError: undefined,
+                  isPlayingRegion: false,
+                }
                 : { ...DEFAULT_SELECTED_REGION },
-            },
+              initializationState: {
+                ...state.initializationState,
+                error: null, // Clear any previous errors
+              },
+            }),
             false,
             'selectRegion'
           );
@@ -167,24 +204,9 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
             callbacks.onRegionSelected(region);
           }
 
-          // Handle cropped WaveSurfer zoom and scroll
-          const { croppedWaveSurfer, croppedContainer } = get();
-          if (region && croppedWaveSurfer && croppedContainer) {
-            const duration = region.end - region.start;
-            if (duration > 0) {
-              const width = croppedContainer.clientWidth;
-              if (width > 0) {
-                const pxPerSec = width / duration;
-                croppedWaveSurfer.zoom(pxPerSec);
-                croppedWaveSurfer.setScrollTime(region.start);
-              }
-            } else {
-              croppedWaveSurfer.zoom(1);
-              croppedWaveSurfer.setScrollTime(0);
-            }
-          } else if (!region && croppedWaveSurfer) {
-            croppedWaveSurfer.zoom(1);
-            croppedWaveSurfer.setScrollTime(0);
+          // Automatically extract audio for the selected region
+          if (region) {
+            get().extractRegionAudio(region);
           }
         },
 
@@ -359,23 +381,52 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
         },
 
         initializeCropped: async (container) => {
-          const { audioElement, spectrogramConfig } = get();
+          const { audioElement, spectrogramConfig, selectedRegion } = get();
 
-          if (!audioElement) {
-            console.warn('Cannot initialize cropped WaveSurfer without audio element');
+          // Use extracted audio if available, otherwise fall back to original audio element
+          const audioSource = selectedRegion.extractedAudioUrl || audioElement;
+
+          if (!audioSource) {
+            console.warn('Cannot initialize cropped WaveSurfer without audio source');
             return;
           }
 
           try {
             set(
-              { croppedContainer: container },
+              (state) => ({
+                croppedContainer: container,
+                initializationState: {
+                  ...state.initializationState,
+                  isCroppedReady: false,
+                  error: null, // Clear any previous errors when initializing
+                },
+              }),
               false,
               'initializeCropped:start'
             );
 
+            // Destroy existing cropped WaveSurfer if it exists
+            const { croppedWaveSurfer: existingCropped } = get();
+            if (existingCropped) {
+              existingCropped.destroy();
+            }
+
+            // Create audio element for extracted audio if using blob URL
+            let mediaElement: HTMLAudioElement;
+            if (selectedRegion.extractedAudioUrl) {
+              // Create a new audio element for the extracted audio
+              const extractedAudio = new Audio(selectedRegion.extractedAudioUrl);
+              extractedAudio.crossOrigin = 'anonymous';
+              mediaElement = extractedAudio;
+            } else if (audioElement) {
+              mediaElement = audioElement;
+            } else {
+              throw new Error('No audio element available for cropped WaveSurfer');
+            }
+
             const croppedWaveSurfer = WaveSurfer.create({
               container,
-              media: audioElement,
+              media: mediaElement,
               waveColor: '#ddd',
               progressColor: '#555',
               backend: 'MediaElement',
@@ -410,6 +461,60 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
               );
             });
 
+            // Set up region playback event listeners
+            croppedWaveSurfer.on('play', () => {
+              set(
+                (state) => ({
+                  selectedRegion: {
+                    ...state.selectedRegion,
+                    isPlayingRegion: true,
+                  },
+                }),
+                false,
+                'initializeCropped:play'
+              );
+            });
+
+            croppedWaveSurfer.on('pause', () => {
+              set(
+                (state) => ({
+                  selectedRegion: {
+                    ...state.selectedRegion,
+                    isPlayingRegion: false,
+                  },
+                }),
+                false,
+                'initializeCropped:pause'
+              );
+            });
+
+            croppedWaveSurfer.on('finish', () => {
+              set(
+                (state) => ({
+                  selectedRegion: {
+                    ...state.selectedRegion,
+                    isPlayingRegion: false,
+                  },
+                }),
+                false,
+                'initializeCropped:finish'
+              );
+            });
+
+            croppedWaveSurfer.on('error', (error) => {
+              console.error('Cropped WaveSurfer error:', error);
+              set(
+                (state) => ({
+                  initializationState: {
+                    ...state.initializationState,
+                    error: `Cropped WaveSurfer error: ${error}`,
+                  },
+                }),
+                false,
+                'initializeCropped:wavesurfer-error'
+              );
+            });
+
           } catch (error) {
             console.error('Failed to initialize cropped WaveSurfer:', error);
             set(
@@ -426,7 +531,21 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
         },
 
         destroy: () => {
-          const { mainWaveSurfer, croppedWaveSurfer } = get();
+          const { mainWaveSurfer, croppedWaveSurfer, selectedRegion } = get();
+
+          // Clean up blob URL if it exists
+          if (selectedRegion.extractedAudioUrl) {
+            revokeBlobURL(selectedRegion.extractedAudioUrl);
+          }
+
+          // Clean up event listeners if they exist
+          if (resetEventListeners) {
+            try {
+              resetEventListeners();
+            } catch (error) {
+              console.warn('Failed to cleanup region event listeners:', error);
+            }
+          }
 
           if (mainWaveSurfer) {
             mainWaveSurfer.destroy();
@@ -452,6 +571,177 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
             false,
             'destroy'
           );
+        },
+
+        // Audio extraction methods
+        extractRegionAudio: async (region) => {
+          const { audioElement } = get();
+
+          if (!audioElement) {
+            console.error('Cannot extract audio: no audio element available');
+            return;
+          }
+
+          // Validate the time range
+          const validation = validateTimeRange(
+            region.start,
+            region.end,
+            audioElement.duration || 0
+          );
+
+          if (!validation.isValid) {
+            set(
+              (state) => ({
+                selectedRegion: {
+                  ...state.selectedRegion,
+                  extractionError: validation.error,
+                  isExtracting: false,
+                },
+              }),
+              false,
+              'extractRegionAudio:validation-error'
+            );
+            return;
+          }
+
+          // Set extracting state
+          set(
+            (state) => ({
+              selectedRegion: {
+                ...state.selectedRegion,
+                isExtracting: true,
+                extractionError: undefined,
+              },
+            }),
+            false,
+            'extractRegionAudio:start'
+          );
+
+          try {
+            // Extract the audio data
+            const audioBlob = await extractAudioRegion(
+              audioElement,
+              region.start,
+              region.end
+            );
+
+            // Create a blob URL for the extracted audio
+            const audioUrl = createAudioBlobURL(audioBlob);
+
+            // Update the selected region with the extracted audio
+            set(
+              (state) => ({
+                selectedRegion: {
+                  ...state.selectedRegion,
+                  extractedAudioBlob: audioBlob,
+                  extractedAudioUrl: audioUrl,
+                  isExtracting: false,
+                  extractionError: undefined,
+                },
+              }),
+              false,
+              'extractRegionAudio:success'
+            );
+
+            // Recreate the cropped WaveSurfer with the extracted audio
+            const { croppedContainer } = get();
+            if (croppedContainer) {
+              get().initializeCropped(croppedContainer);
+            }
+
+          } catch (error) {
+            console.error('Failed to extract audio region:', error);
+
+            set(
+              (state) => ({
+                selectedRegion: {
+                  ...state.selectedRegion,
+                  isExtracting: false,
+                  extractionError: error instanceof Error ? error.message : 'Unknown extraction error',
+                },
+              }),
+              false,
+              'extractRegionAudio:error'
+            );
+          }
+        },
+
+        clearExtractedAudio: () => {
+          const { selectedRegion } = get();
+
+          if (selectedRegion.extractedAudioUrl) {
+            revokeBlobURL(selectedRegion.extractedAudioUrl);
+          }
+
+          set(
+            (state) => ({
+              selectedRegion: {
+                ...state.selectedRegion,
+                extractedAudioBlob: undefined,
+                extractedAudioUrl: undefined,
+                isExtracting: false,
+                extractionError: undefined,
+              },
+            }),
+            false,
+            'clearExtractedAudio'
+          );
+        },
+
+        // Region playback
+        playExtractedRegion: async () => {
+          const { selectedRegion, croppedWaveSurfer } = get();
+
+          if (!selectedRegion.extractedAudioUrl) {
+            console.warn('Cannot play region: no extracted audio available');
+            return;
+          }
+
+          if (!croppedWaveSurfer) {
+            console.warn('Cannot play region: cropped WaveSurfer not available');
+            return;
+          }
+
+          try {
+            // If already playing, pause first
+            if (selectedRegion.isPlayingRegion) {
+              croppedWaveSurfer.pause();
+              return;
+            }
+
+            // Play the cropped WaveSurfer (which contains the extracted audio)
+            await croppedWaveSurfer.play();
+            console.log('Playing extracted audio region via cropped WaveSurfer');
+          } catch (error) {
+            console.error('Failed to play extracted audio region:', error);
+
+            set(
+              (state) => ({
+                initializationState: {
+                  ...state.initializationState,
+                  error: `Failed to play region: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                },
+              }),
+              false,
+              'playExtractedRegion:error'
+            );
+          }
+        },
+
+        pauseExtractedRegion: () => {
+          const { croppedWaveSurfer } = get();
+
+          if (!croppedWaveSurfer) {
+            console.warn('Cannot pause region: cropped WaveSurfer not available');
+            return;
+          }
+
+          try {
+            croppedWaveSurfer.pause();
+            console.log('Paused extracted audio region');
+          } catch (error) {
+            console.error('Failed to pause extracted audio region:', error);
+          }
         },
       })
     ),
