@@ -1,3 +1,6 @@
+// Re-export the existing region colors functionality
+// This keeps the existing API while organizing it in the new store structure
+
 // Define a list of predefined colors for regions
 export const REGION_COLORS = [
   'rgba(255, 0, 0, 0.2)',    // Red
@@ -31,4 +34,11 @@ export class RegionColorManager {
   reset(): void {
     this.colorIndex = 0;
   }
-} 
+
+  /**
+   * Get the current color index (for debugging)
+   */
+  getCurrentIndex(): number {
+    return this.colorIndex;
+  }
+}

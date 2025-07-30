@@ -108,10 +108,10 @@ const parseClickTimestamps = (data: string, selectionFile: SelectionFile): Selec
   return selections;
 };
 
-/**
+/*
  * Legacy parser for the original tab-delimited format
  * Kept for backward compatibility
- */
+ 
 const parseSelections = (data: string): Selection[] => {
   const lines = data.split('\n');
   const parsedSelections: Selection[] = [];
@@ -141,4 +141,5 @@ const parseSelections = (data: string): Selection[] => {
   }
 
   return parsedSelections;
-}; 
+};
+*/ 

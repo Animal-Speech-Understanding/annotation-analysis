@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { useWaveform } from '../model/useWaveform';
+import { useWaveSurfer } from '@/shared/stores/wavesurfer';
 import { MarkerManager, SelectionGroupControls } from '@entities/MarkerManager';
 import { SelectionGroup, SelectionVisibility } from '@entities/MarkerManager/model';
 
@@ -15,23 +15,22 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
   audioId,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const croppedRef = useRef<HTMLDivElement>(null);
+
   const {
-    containerRef,
-    croppedRef,
     isPlaying,
     isLoaded,
     isInitialized,
-    initialize,
     playPause,
     clearRegions,
     selectedRegion,
     removeRegion,
-    wavesurfer,
+    mainWaveSurfer: wavesurfer,
     croppedWaveSurfer,
-    destroy
-  } = useWaveform({
-    audioRef: audioRef as React.RefObject<HTMLAudioElement>,
-  });
+    setupMain,
+    setupCropped,
+  } = useWaveSurfer();
 
   // Initialize visibility state for all selection groups to true
   const initialVisibility = useMemo(() => {
@@ -49,16 +48,16 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
   };
 
   useEffect(() => {
-    if (!isInitialized) {
-      initialize();
+    if (!isInitialized && containerRef.current && audioRef.current) {
+      setupMain(containerRef.current, audioRef.current);
     }
-  }, [isInitialized, initialize]);
+  }, [isInitialized, setupMain]);
 
   useEffect(() => {
-    return () => {
-      destroy();
-    };
-  }, [destroy]);
+    if (isInitialized && croppedRef.current) {
+      setupCropped(croppedRef.current);
+    }
+  }, [isInitialized, setupCropped]);
 
   // Update visibility if selection groups change
   useEffect(() => {
