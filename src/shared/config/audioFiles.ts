@@ -66,7 +66,7 @@ export const detectionAlgorithms: AlgorithmConfig[] = [
   },
   {
     id: 'lstm',
-    name: 'LSTM Algorithm',
+    name: 'LSTM Preloaded',
     description: 'LSTM-based click detection',
     color: '#2196F3', // Blue
     selectionUrl: '/static/selections/watkins_5_predictions.csv'

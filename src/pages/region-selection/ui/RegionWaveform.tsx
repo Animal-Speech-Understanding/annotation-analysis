@@ -1,18 +1,20 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useWaveSurfer } from '@/shared/stores/wavesurfer';
-import { MarkerManager, SelectionGroupControls } from '@entities/MarkerManager';
-import { SelectionGroup, SelectionVisibility } from '@entities/MarkerManager/model';
+import { MarkerManager, SelectionGroupControls, RealtimePredictionManager } from '@entities/MarkerManager';
+import { SelectionGroup, SelectionVisibility, Selection } from '@entities/MarkerManager/model';
 
 interface RegionWaveformProps {
   audioUrl: string;
   selectionGroups: SelectionGroup[];
   audioId: string;
+  onPredictionUpdate?: (selections: Selection[]) => void;
 }
 
 export const RegionWaveform: React.FC<RegionWaveformProps> = ({
   audioUrl,
   selectionGroups,
   audioId,
+  onPredictionUpdate,
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -122,6 +124,17 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
             onVisibilityChange={handleVisibilityChange}
             currentAudioId={audioId}
           />
+
+          {/* Real-time Prediction Manager */}
+          {onPredictionUpdate && (
+            <div style={{ marginTop: '15px' }}>
+              <RealtimePredictionManager
+                audioElement={audioRef.current}
+                audioId={audioId}
+                onSelectionsUpdate={onPredictionUpdate}
+              />
+            </div>
+          )}
         </>
       )}
 

@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { RegionWaveform } from './RegionWaveform';
 import { fetchMultipleSelections } from '@entities/MarkerManager';
-import { SelectionGroup } from '@/entities/MarkerManager/model/types';
+import { SelectionGroup, Selection } from '@/entities/MarkerManager/model/types';
 import { audioFiles, AudioFile, getSelectionFilesFromAlgorithms } from '@/shared/config/audioFiles';
 
 /**
@@ -28,15 +28,21 @@ export const RegionSelectionPage: React.FC = () => {
           return;
         }
 
-        // Fetch selection data from all available algorithms
-        // Since selections are now algorithm-based instead of audio-specific,
-        // we load all algorithm selections
+        // Fetch selection data from static algorithm files (true, lstm)
         const selectionFiles = getSelectionFilesFromAlgorithms();
         const groups = await fetchMultipleSelections(selectionFiles);
 
-        // Filter selections to only show those relevant to the current audio file
-        // This filtering might happen in the UI or by filename in the data
-        setSelectionGroups(groups);
+        // Add empty predictions group that will be populated in real-time
+        const predictionsGroup: SelectionGroup = {
+          id: 'realtime-lstm',
+          name: 'LSTM Real-time',
+          color: '#FF9800', // Orange
+          description: 'Real-time LSTM-based click detection',
+          selections: []
+        };
+
+        // Set initial selection groups (static + empty predictions)
+        setSelectionGroups([...groups, predictionsGroup]);
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -46,6 +52,23 @@ export const RegionSelectionPage: React.FC = () => {
 
     loadData();
   }, [audioId]);
+
+  /**
+   * Handle real-time prediction updates
+   */
+  const handlePredictionUpdate = useCallback((newSelections: Selection[]) => {
+    setSelectionGroups(prevGroups => {
+      return prevGroups.map(group => {
+        if (group.id === 'realtime-lstm') {
+          return {
+            ...group,
+            selections: newSelections
+          };
+        }
+        return group;
+      });
+    });
+  }, []);
 
   if (!audioFile && !loading) {
     return (
@@ -98,6 +121,7 @@ export const RegionSelectionPage: React.FC = () => {
           audioUrl={audioFile?.url || ''}
           selectionGroups={selectionGroups}
           audioId={audioId || ''}
+          onPredictionUpdate={handlePredictionUpdate}
         />
       )}
     </div>
