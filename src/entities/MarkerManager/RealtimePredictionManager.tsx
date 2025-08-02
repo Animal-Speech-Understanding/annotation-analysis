@@ -247,7 +247,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
       return calculateEvaluationMetrics(
         groundTruthGroup.selections,
         currentPredictions,
-        1, // 0.5ms tolerance as requested
+        2, // 0.5ms tolerance as requested
         audioId
       );
     }

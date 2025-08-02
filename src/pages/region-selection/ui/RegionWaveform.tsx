@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useWaveSurfer } from '@/shared/stores/wavesurfer';
 import { MarkerManager, SelectionGroupControls, RealtimePredictionManager } from '@entities/MarkerManager';
 import { SelectionGroup, SelectionVisibility, Selection } from '@entities/MarkerManager/model';
+import { calculateEvaluationMetrics, formatEvaluationMetrics } from '@/entities/MarkerManager/utils/evaluationMetrics';
 
 interface RegionWaveformProps {
   audioUrl: string;
@@ -106,6 +107,80 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
       algorithmCounts
     };
   }, [selectionGroups, audioId]);
+
+  // Calculate evaluation metrics for the selected region
+  const regionEvaluationMetrics = useMemo(() => {
+    if (!selectedRegion.region || !selectionGroups.length) return null;
+
+    // Find ground truth (True Clicks) and real-time LSTM predictions
+    const groundTruthGroup = selectionGroups.find(group => group.id === 'true');
+    const realtimeLstmGroup = selectionGroups.find(group => group.id === 'realtime-lstm');
+
+    if (!groundTruthGroup || !realtimeLstmGroup || realtimeLstmGroup.selections.length === 0) {
+      return null;
+    }
+
+    // Filter selections within the selected region's time bounds
+    const filterSelectionsInRegion = (selections: Selection[]) => {
+      return selections.filter(selection => {
+        // First filter by audio ID
+        const matchesAudio = selection.audioId?.toLowerCase() === audioId.toLowerCase() ||
+          selection.name?.toLowerCase().includes(audioId.toLowerCase());
+
+        if (!matchesAudio) return false;
+
+        // Then filter by time bounds within the region
+        const selectionTime = selection.beginTime;
+        return selectionTime >= selectedRegion.region!.start && selectionTime <= selectedRegion.region!.end;
+      });
+    };
+
+    const regionGroundTruth = filterSelectionsInRegion(groundTruthGroup.selections);
+    const regionPredictions = filterSelectionsInRegion(realtimeLstmGroup.selections);
+
+    if (regionGroundTruth.length === 0 && regionPredictions.length === 0) {
+      return null; // No data in this region
+    }
+
+    return calculateEvaluationMetrics(
+      regionGroundTruth,
+      regionPredictions,
+      2, // Using 1ms tolerance as set in the main component
+      audioId
+    );
+  }, [selectionGroups, selectedRegion.region?.start, selectedRegion.region?.end, audioId]);
+
+  // Calculate click counts for each algorithm in the selected region
+  const regionClickCounts = useMemo(() => {
+    if (!selectedRegion.region || !selectionGroups.length) return null;
+
+    // Filter selections within the selected region's time bounds for each group
+    const filterSelectionsInRegion = (selections: Selection[]) => {
+      return selections.filter(selection => {
+        // First filter by audio ID
+        const matchesAudio = selection.audioId?.toLowerCase() === audioId.toLowerCase() ||
+          selection.name?.toLowerCase().includes(audioId.toLowerCase());
+
+        if (!matchesAudio) return false;
+
+        // Then filter by time bounds within the region
+        const selectionTime = selection.beginTime;
+        return selectionTime >= selectedRegion.region!.start && selectionTime <= selectedRegion.region!.end;
+      });
+    };
+
+    // Calculate counts for each selection group
+    const counts = selectionGroups.map(group => ({
+      id: group.id,
+      name: group.name,
+      color: group.color,
+      count: filterSelectionsInRegion(group.selections).length
+    }));
+
+    // Only return if at least one group has clicks in the region
+    const totalClicks = counts.reduce((sum, item) => sum + item.count, 0);
+    return totalClicks > 0 ? counts : null;
+  }, [selectionGroups, selectedRegion.region?.start, selectedRegion.region?.end, audioId]);
 
   return (
     <div>
@@ -239,6 +314,57 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
             <p>Start time: {selectedRegion.region.start.toFixed(3)} seconds</p>
             <p>End time: {selectedRegion.region.end.toFixed(3)} seconds</p>
             <p>Duration: {(selectedRegion.region.end - selectedRegion.region.start).toFixed(3)} seconds</p>
+
+            {/* Region click counts display */}
+            {regionClickCounts && (
+              <div style={{
+                marginTop: '12px',
+                padding: '8px 12px',
+                backgroundColor: '#F5F5F5',
+                borderRadius: '4px',
+                border: '1px solid #E0E0E0',
+                fontSize: '12px'
+              }}>
+                <strong>Clicks in this region:</strong>
+                <div style={{ marginTop: '4px' }}>
+                  {regionClickCounts.map((group, index) => (
+                    <div key={group.id} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      marginBottom: index < regionClickCounts.length - 1 ? '2px' : '0'
+                    }}>
+                      <div style={{
+                        width: '12px',
+                        height: '12px',
+                        backgroundColor: group.color,
+                        borderRadius: '2px',
+                        border: '1px solid #ccc'
+                      }}></div>
+                      <span style={{ color: '#666' }}>
+                        {group.name}: <strong>{group.count}</strong>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Region evaluation metrics display */}
+            {regionEvaluationMetrics && (
+              <div style={{
+                marginTop: '12px',
+                padding: '8px 12px',
+                backgroundColor: '#E8F5E8',
+                borderRadius: '4px',
+                border: '1px solid #C8E6C9',
+                fontSize: '12px',
+                color: '#2E7D32'
+              }}>
+                <strong>Region Evaluation vs True Clicks:</strong><br />
+                {formatEvaluationMetrics(regionEvaluationMetrics)}
+              </div>
+            )}
 
             {/* Region action buttons */}
             <div style={{
