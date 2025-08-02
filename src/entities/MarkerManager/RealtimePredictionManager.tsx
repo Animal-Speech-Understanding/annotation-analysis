@@ -41,6 +41,8 @@ interface ProcessingState {
   status: ProcessingStatus | null;
   error: string | null;
   canCancel: boolean;
+  startTime: number | null;
+  endTime: number | null;
 }
 
 /**
@@ -75,7 +77,9 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
     isProcessing: false,
     status: null,
     error: null,
-    canCancel: false
+    canCancel: false,
+    startTime: null,
+    endTime: null
   });
 
   // Store accumulated selections as processing continues
@@ -149,7 +153,9 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
         isProcessing: true,
         status: null,
         error: null,
-        canCancel: true
+        canCancel: true,
+        startTime: Date.now(),
+        endTime: null
       });
 
       console.log(`Starting real-time prediction processing for audio: ${audioId}`);
@@ -179,6 +185,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
           ...prev,
           isProcessing: false,
           canCancel: false,
+          endTime: Date.now(),
           error: null // Clear any previous errors on successful completion
         }));
       }
@@ -192,6 +199,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
           ...prev,
           isProcessing: false,
           canCancel: false,
+          endTime: Date.now(),
           error: error instanceof Error ? error.message : 'Unknown processing error'
         }));
       }
@@ -209,6 +217,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
         ...prev,
         isProcessing: false,
         canCancel: false,
+        endTime: Date.now(),
         error: 'Processing cancelled by user'
       }));
     }
@@ -223,7 +232,9 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
       isProcessing: false,
       status: null,
       error: null,
-      canCancel: false
+      canCancel: false,
+      startTime: null,
+      endTime: Date.now()
     });
     onSelectionsUpdate([]);
   }, [onSelectionsUpdate]);
@@ -316,6 +327,21 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
       <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
         Predictions found: {accumulatedSelections.current.length}
       </div>
+
+      {/* Processing time display */}
+      {processingState.startTime && processingState.endTime && (
+        <div style={{
+          fontSize: '12px',
+          color: '#666',
+          marginBottom: '4px',
+          padding: '6px 8px',
+          backgroundColor: '#F5F5F5',
+          borderRadius: '3px',
+          border: '1px solid #E0E0E0'
+        }}>
+          Processing time: {((processingState.endTime - processingState.startTime) / 1000).toFixed(3)} seconds
+        </div>
+      )}
 
       {/* Evaluation metrics display */}
       {evaluationMetrics && (

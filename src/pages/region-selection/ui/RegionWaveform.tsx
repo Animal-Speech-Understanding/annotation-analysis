@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useWaveSurfer } from '@/shared/stores/wavesurfer';
 import { MarkerManager, SelectionGroupControls, RealtimePredictionManager } from '@entities/MarkerManager';
 import { SelectionGroup, SelectionVisibility, Selection } from '@entities/MarkerManager/model';
@@ -195,15 +195,25 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
       croppedWaveSurfer.on('timeupdate', updatePosition);
       croppedWaveSurfer.on('play', updatePosition);
       croppedWaveSurfer.on('pause', updatePosition);
+      croppedWaveSurfer.on('interaction', updatePosition);
+
+      // Initial position update
+      updatePosition();
 
       // Cleanup
       return () => {
         croppedWaveSurfer.un('timeupdate', updatePosition);
         croppedWaveSurfer.un('play', updatePosition);
         croppedWaveSurfer.un('pause', updatePosition);
+        croppedWaveSurfer.un('interaction', updatePosition);
       };
     }
   }, [croppedWaveSurfer]);
+
+  // Reset player position when region changes
+  useEffect(() => {
+    setCroppedPlayerPosition(0);
+  }, [selectedRegion.region?.start, selectedRegion.region?.end]);
 
   return (
     <div>
@@ -226,6 +236,20 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
           {/* Real-time Prediction Manager */}
           {onPredictionUpdate && (
             <div style={{ marginTop: '15px' }}>
+              {/* Recording details */}
+              {wavesurfer && wavesurfer.getDuration() > 0 && (
+                <div style={{
+                  marginBottom: '20px',
+                  padding: '10px',
+                  backgroundColor: '#f5f5f5',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '14px'
+                }}>
+                  <strong>Recording Length:</strong> {wavesurfer.getDuration().toFixed(3)} seconds
+                </div>
+              )}
+
               <RealtimePredictionManager
                 audioElement={audioRef.current}
                 audioId={audioId}
