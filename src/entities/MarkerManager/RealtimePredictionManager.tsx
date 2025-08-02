@@ -44,7 +44,7 @@ interface ProcessingState {
  * Default API configuration
  */
 const DEFAULT_API_CONFIG: PredictionConfig = {
-  apiUrl: '/api/predictions', // Default backend endpoint
+  apiUrl: 'http://localhost:8000/infer', // Default backend endpoint
   timeout: 15000 // 15 second timeout per chunk
 };
 

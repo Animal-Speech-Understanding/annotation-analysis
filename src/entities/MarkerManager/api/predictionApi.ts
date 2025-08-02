@@ -23,7 +23,7 @@ export interface PredictionConfig {
  */
 export interface PredictionResponse {
   /** Array of prediction timestamps in seconds */
-  predictions: number[];
+  seconds: number[];
 }
 
 /**
@@ -67,7 +67,7 @@ export async function sendChunkForPrediction(
   try {
     // Create FormData to send the audio file
     const formData = new FormData();
-    formData.append('audio', audioChunk.audioBlob, `chunk_${audioChunk.index}.wav`);
+    formData.append('file', audioChunk.audioBlob, `chunk_${audioChunk.index}.wav`);
 
     // Send the request with timeout
     const controller = new AbortController();
@@ -88,12 +88,12 @@ export async function sendChunkForPrediction(
     const data = await response.json();
 
     // Validate response format
-    if (!Array.isArray(data)) {
-      throw new Error('Invalid response format: expected array of timestamps');
+    if (!data || typeof data !== 'object' || !Array.isArray(data.seconds)) {
+      throw new Error('Invalid response format: expected object with seconds array');
     }
 
     return {
-      predictions: data,
+      seconds: data.seconds,
     };
 
   } catch (error) {
@@ -138,7 +138,7 @@ export async function processChunksInRealtime(
 
       // Convert predictions to selections
       const chunkSelections = createSelectionsFromPredictions(
-        predictionResponse.predictions,
+        predictionResponse.seconds,
         chunk,
         audioId
       );
