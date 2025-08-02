@@ -71,44 +71,6 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
     setGroupVisibility(initialVisibility);
   }, [initialVisibility]);
 
-  // Calculate statistics about the clicks for the current audio file
-  const stats = useMemo(() => {
-    if (!selectionGroups.length) return null;
-
-    // Filter clicks for the current audio file
-    const filterClicksForCurrentAudio = (group: SelectionGroup) => {
-      return group.selections.filter(selection => {
-        // First try to use the dedicated audioId field
-        if (selection.audioId) {
-          return selection.audioId.toLowerCase() === audioId.toLowerCase();
-        }
-
-        // Fallback to checking the name field (filename)
-        if (selection.name) {
-          return selection.name.toLowerCase().includes(audioId.toLowerCase());
-        }
-
-        return false;
-      }).length;
-    };
-
-    // Get counts from each algorithm for this audio
-    const algorithmCounts = selectionGroups.map(group => ({
-      name: group.name,
-      count: filterClicksForCurrentAudio(group)
-    }));
-
-    // Calculate average and total
-    const totalClicks = algorithmCounts.reduce((sum, item) => sum + item.count, 0);
-    const averageClicks = algorithmCounts.length > 0 ? totalClicks / algorithmCounts.length : 0;
-
-    return {
-      totalClicks,
-      averageClicks: Math.round(averageClicks * 10) / 10,
-      algorithmCounts
-    };
-  }, [selectionGroups, audioId]);
-
   // Calculate evaluation metrics for the selected region
   const regionEvaluationMetrics = useMemo(() => {
     if (!selectedRegion.region || !selectionGroups.length) return null;
@@ -219,13 +181,6 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
     <div>
       {selectionGroups.length > 0 && (
         <>
-          {/* <div style={{ marginBottom: '15px' }}>
-            <div style={{ fontSize: '14px', color: '#666' }}>
-              <strong>Detection Summary:</strong> {stats?.totalClicks} total clicks in this recording
-              {stats?.algorithmCounts && stats.algorithmCounts.length > 1 ? ` (avg. ${stats?.averageClicks} per algorithm)` : ''}
-            </div>
-          </div> */}
-
           <SelectionGroupControls
             selectionGroups={selectionGroups}
             visibility={groupVisibility}
