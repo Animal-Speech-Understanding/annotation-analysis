@@ -3,6 +3,90 @@ import { devtools, subscribeWithSelector } from 'zustand/middleware';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions';
 import Spectrogram from 'wavesurfer.js/dist/plugins/spectrogram';
+import TimelinePlugin from 'wavesurfer.js/dist/plugins/timeline';
+
+/**
+ * Calculate optimal timeline parameters based on audio duration
+ * Uses a flexible, scalable approach rather than rigid thresholds
+ */
+function calculateTimelineParams(duration: number) {
+  // Target: 5-15 labels across the timeline for optimal readability
+  const targetLabelCount = Math.max(5, Math.min(15, Math.ceil(duration / 2)));
+
+  // Calculate base interval to achieve target label count
+  let baseInterval = duration / targetLabelCount;
+
+  // Round to nice intervals (from milliseconds to minutes)
+  const niceIntervals = [
+    0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 20, 30, 60, 120, 300, 600, 1200
+  ];
+
+  let primaryLabelInterval = niceIntervals[0];
+  for (const interval of niceIntervals) {
+    if (interval >= baseInterval) {
+      primaryLabelInterval = interval;
+      break;
+    }
+  }
+
+  // If we're at the end of nice intervals, scale up
+  if (baseInterval > niceIntervals[niceIntervals.length - 1]) {
+    primaryLabelInterval = Math.ceil(baseInterval / 60) * 60; // Round up to nearest minute
+  }
+
+  // Calculate secondary labels (half the primary interval)
+  const secondaryLabelInterval = primaryLabelInterval / 2;
+
+  // Calculate tick interval (1/10th of primary interval, but not less than 0.001s)
+  const timeInterval = Math.max(0.001, primaryLabelInterval / 10);
+
+  return {
+    timeInterval,
+    primaryLabelInterval,
+    secondaryLabelInterval,
+    // Don't use timeOffset as it shifts the timeline position off-screen
+  };
+}
+
+/**
+ * Format time for timeline labels (milliseconds, seconds and minutes)
+ * @param seconds - Time in seconds
+ * @param intervalSize - Optional hint about the interval size to determine precision
+ */
+function formatTimeLabel(seconds: number, intervalSize?: number): string {
+  // Helper function to remove trailing .0 from formatted numbers
+  const cleanDecimal = (formatted: string): string => {
+    return formatted.replace(/\.0+$/, '');
+  };
+
+  if (seconds < 60) {
+    // Choose precision based on interval size (spacing between labels)
+    if (intervalSize && intervalSize <= 0.01) {
+      // Very fine intervals (≤ 10ms spacing) - use 0.001s format
+      return `${cleanDecimal(seconds.toFixed(3))}s`;
+    } else if (intervalSize && intervalSize <= 0.1 && seconds < 1) {
+      // Fine intervals for sub-second values - use milliseconds
+      return `${Math.round(seconds * 1000)}ms`;
+    } else if (intervalSize && intervalSize <= 0.1) {
+      // Fine intervals - use 2 decimal places
+      return `${cleanDecimal(seconds.toFixed(2))}s`;
+    } else if (intervalSize && intervalSize <= 1) {
+      // Medium intervals - use 1 decimal place
+      return `${cleanDecimal(seconds.toFixed(1))}s`;
+    } else if (seconds < 10) {
+      // Default for small times - 1 decimal place
+      return `${cleanDecimal(seconds.toFixed(1))}s`;
+    } else {
+      // Large times - whole seconds
+      return `${Math.round(seconds)}s`;
+    }
+  } else {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.round(seconds % 60);
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  }
+}
+
 import {
   WaveSurferStore,
   WaveSurferConfig,
@@ -295,7 +379,7 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
               set({ regionsPlugin: regions }, false, 'initializeMain:regionsPlugin');
             }
 
-            // Create main WaveSurfer instance
+            // Create main WaveSurfer instance (timeline will be added after audio loads)
             const wavesurfer = WaveSurfer.create({
               container,
               media: audioElement,
@@ -311,6 +395,18 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
 
             // Set up event listeners
             wavesurfer.on('ready', () => {
+              // Add timeline plugin now that we know the duration
+              const duration = wavesurfer.getDuration();
+              const timelineParams = calculateTimelineParams(duration);
+              const timelinePlugin = TimelinePlugin.create({
+                height: 20,
+                insertPosition: 'beforebegin',
+                formatTimeCallback: (seconds: number) => formatTimeLabel(seconds, timelineParams.primaryLabelInterval),
+                secondaryLabelOpacity: 0.5,
+                ...timelineParams,
+              });
+              wavesurfer.registerPlugin(timelinePlugin);
+
               set(
                 (state) => ({
                   playbackState: { ...state.playbackState, isLoaded: true },
@@ -424,6 +520,24 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
               throw new Error('No audio element available for cropped WaveSurfer');
             }
 
+            // Get the offset for timeline
+            const offset = selectedRegion.region?.start || 0;
+
+            // Create timeline plugin for cropped WaveSurfer with estimated duration
+            // We'll update it once the actual duration is known
+            const estimatedDuration = selectedRegion.region ?
+              (selectedRegion.region.end - selectedRegion.region.start) : 5; // fallback to 5s
+            const timelineParams = calculateTimelineParams(estimatedDuration);
+
+            const croppedTimelinePlugin = TimelinePlugin.create({
+              height: 20,
+              insertPosition: 'beforebegin',
+              formatTimeCallback: (seconds: number) => formatTimeLabel(seconds + offset, timelineParams.primaryLabelInterval),
+              secondaryLabelOpacity: 0.5,
+              ...timelineParams,
+            });
+
+            // Create cropped WaveSurfer instance with timeline plugin included
             const croppedWaveSurfer = WaveSurfer.create({
               container,
               media: mediaElement,
@@ -433,6 +547,7 @@ export const useWaveSurferStore = create<WaveSurferStore>()(
               autoCenter: false,
               autoScroll: false,
               hideScrollbar: true,
+              plugins: [croppedTimelinePlugin],
             });
 
             // Add spectrogram plugin

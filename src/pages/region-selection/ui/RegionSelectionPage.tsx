@@ -106,13 +106,13 @@ export const RegionSelectionPage: React.FC = () => {
       )}
 
       {/* Algorithm Explanation */}
-      <div style={{ marginBottom: '20px' }}>
+      {/* <div style={{ marginBottom: '20px' }}>
         <h3 style={{ marginBottom: '10px' }}>Detection Algorithms:</h3>
         <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
           Each algorithm analyzes audio files and detects potential sperm whale clicks.
           Toggle the checkboxes below to compare how different algorithms perform.
         </p>
-      </div>
+      </div> */}
 
       {loading ? (
         <div>Loading selection data...</div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useWaveSurfer } from '@/shared/stores/wavesurfer';
 import { MarkerManager, SelectionGroupControls, RealtimePredictionManager } from '@entities/MarkerManager';
 import { SelectionGroup, SelectionVisibility, Selection } from '@entities/MarkerManager/model';
@@ -19,6 +19,7 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [croppedPlayerPosition, setCroppedPlayerPosition] = useState<number>(0);
   const croppedRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -182,16 +183,38 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
     return totalClicks > 0 ? counts : null;
   }, [selectionGroups, selectedRegion.region?.start, selectedRegion.region?.end, audioId]);
 
+  // Track cropped waveform player position
+  useEffect(() => {
+    if (croppedWaveSurfer) {
+      const updatePosition = () => {
+        const currentTime = croppedWaveSurfer.getCurrentTime();
+        setCroppedPlayerPosition(currentTime);
+      };
+
+      // Listen to timeupdate events
+      croppedWaveSurfer.on('timeupdate', updatePosition);
+      croppedWaveSurfer.on('play', updatePosition);
+      croppedWaveSurfer.on('pause', updatePosition);
+
+      // Cleanup
+      return () => {
+        croppedWaveSurfer.un('timeupdate', updatePosition);
+        croppedWaveSurfer.un('play', updatePosition);
+        croppedWaveSurfer.un('pause', updatePosition);
+      };
+    }
+  }, [croppedWaveSurfer]);
+
   return (
     <div>
       {selectionGroups.length > 0 && (
         <>
-          <div style={{ marginBottom: '15px' }}>
+          {/* <div style={{ marginBottom: '15px' }}>
             <div style={{ fontSize: '14px', color: '#666' }}>
               <strong>Detection Summary:</strong> {stats?.totalClicks} total clicks in this recording
               {stats?.algorithmCounts && stats.algorithmCounts.length > 1 ? ` (avg. ${stats?.averageClicks} per algorithm)` : ''}
             </div>
-          </div>
+          </div> */}
 
           <SelectionGroupControls
             selectionGroups={selectionGroups}
@@ -314,6 +337,7 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
             <p>Start time: {selectedRegion.region.start.toFixed(3)} seconds</p>
             <p>End time: {selectedRegion.region.end.toFixed(3)} seconds</p>
             <p>Duration: {(selectedRegion.region.end - selectedRegion.region.start).toFixed(3)} seconds</p>
+            <p>Player position: {(selectedRegion.region.start + croppedPlayerPosition).toFixed(3)} seconds (original audio)</p>
 
             {/* Region click counts display */}
             {regionClickCounts && (
