@@ -5,14 +5,15 @@
  * chunking, prediction requests, and marker updates.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
-import { Selection } from './model/types';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
+import { Selection, SelectionGroup } from './model/types';
 import { chunkAudio, ChunkingConfig } from '@/shared/stores/wavesurfer/audioChunking';
 import {
   processChunksInRealtime,
   ProcessingStatus,
   PredictionConfig
 } from './api/predictionApi';
+import { calculateEvaluationMetrics, formatEvaluationMetrics } from './utils/evaluationMetrics';
 
 /**
  * Props for the RealtimePredictionManager
@@ -28,6 +29,8 @@ interface RealtimePredictionManagerProps {
   onStatusUpdate?: (status: ProcessingStatus) => void;
   /** Backend API configuration */
   apiConfig?: PredictionConfig;
+  /** Existing selection groups for evaluation */
+  selectionGroups?: SelectionGroup[];
 }
 
 /**
@@ -65,7 +68,8 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
   audioId,
   onSelectionsUpdate,
   onStatusUpdate,
-  apiConfig = DEFAULT_API_CONFIG
+  apiConfig = DEFAULT_API_CONFIG,
+  selectionGroups = []
 }) => {
   const [processingState, setProcessingState] = useState<ProcessingState>({
     isProcessing: false,
@@ -233,6 +237,23 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
     return totalChunks > 0 ? Math.round((processedChunks / totalChunks) * 100) : 0;
   }, [processingState.status]);
 
+  // Calculate evaluation metrics when both ground truth and predictions exist
+  const evaluationMetrics = useMemo(() => {
+    // Find ground truth (True Clicks) and current predictions
+    const groundTruthGroup = selectionGroups.find(group => group.id === 'true');
+    const currentPredictions = accumulatedSelections.current;
+
+    if (groundTruthGroup && currentPredictions.length > 0) {
+      return calculateEvaluationMetrics(
+        groundTruthGroup.selections,
+        currentPredictions,
+        1, // 0.5ms tolerance as requested
+        audioId
+      );
+    }
+    return null;
+  }, [selectionGroups, accumulatedSelections.current.length, audioId]);
+
   return (
     <div style={{
       padding: '12px',
@@ -295,6 +316,22 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
       <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
         Predictions found: {accumulatedSelections.current.length}
       </div>
+
+      {/* Evaluation metrics display */}
+      {evaluationMetrics && (
+        <div style={{
+          fontSize: '12px',
+          color: '#2E7D32',
+          marginBottom: '4px',
+          padding: '6px 8px',
+          backgroundColor: '#E8F5E8',
+          borderRadius: '3px',
+          border: '1px solid #C8E6C9'
+        }}>
+          <strong>Evaluation vs True Clicks:</strong><br />
+          {formatEvaluationMetrics(evaluationMetrics)}
+        </div>
+      )}
 
       {/* Error display */}
       {processingState.error && (

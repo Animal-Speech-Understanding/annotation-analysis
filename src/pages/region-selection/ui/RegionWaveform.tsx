@@ -132,6 +132,7 @@ export const RegionWaveform: React.FC<RegionWaveformProps> = ({
                 audioElement={audioRef.current}
                 audioId={audioId}
                 onSelectionsUpdate={onPredictionUpdate}
+                selectionGroups={selectionGroups}
               />
             </div>
           )}
