@@ -186,29 +186,43 @@ export async function processChunksInRealtime(
 }
 
 /**
- * Convert prediction timestamps to Selection objects
+ * Convert prediction timestamps to Selection objects, cropping padding
  * 
- * @param predictions - Array of prediction timestamps
+ * @param predictions - Array of prediction timestamps from padded chunk
  * @param chunk - The audio chunk these predictions came from
  * @param audioId - ID of the audio file
- * @returns Selection[] - Array of selection objects
+ * @returns Selection[] - Array of selection objects with padding cropped
  */
 function createSelectionsFromPredictions(
   predictions: number[],
   chunk: AudioChunk,
   audioId: string
 ): Selection[] {
-  return predictions.map((timestamp, index) => {
-    // Adjust timestamp to be relative to the full audio file
-    const globalTimestamp = chunk.startTime + timestamp;
+  const selections: Selection[] = [];
+  const { actualLeftPadding } = chunk;
 
-    return {
-      id: `prediction_${chunk.index}_${index}`,
-      beginTime: globalTimestamp,
-      endTime: globalTimestamp + 0.001, // Very small duration for click markers
-      audioId: audioId
-    };
+  // Calculate the valid time range within the padded chunk using actual padding
+  const chunkDurationInPaddedChunk = chunk.endTime - chunk.startTime;
+  const validStartTime = actualLeftPadding;
+  const validEndTime = actualLeftPadding + chunkDurationInPaddedChunk;
+
+  predictions.forEach((timestamp, index) => {
+    // Only include predictions that fall within the valid range (excluding padding)
+    if (timestamp >= validStartTime && timestamp <= validEndTime) {
+      // Adjust timestamp: subtract actual left padding, then add original chunk start time
+      const adjustedTimestamp = timestamp - actualLeftPadding;
+      const globalTimestamp = chunk.startTime + adjustedTimestamp;
+
+      selections.push({
+        id: `prediction_${chunk.index}_${index}`,
+        beginTime: globalTimestamp,
+        endTime: globalTimestamp + 0.001, // Very small duration for click markers
+        audioId: audioId
+      });
+    }
   });
+
+  return selections;
 }
 
 /**

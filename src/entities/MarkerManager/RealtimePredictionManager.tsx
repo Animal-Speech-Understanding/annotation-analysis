@@ -49,11 +49,12 @@ const DEFAULT_API_CONFIG: PredictionConfig = {
 };
 
 /**
- * Default chunking configuration (5 second chunks as requested)
+ * Default chunking configuration (5 second chunks with 3 second padding)
  */
 const DEFAULT_CHUNKING_CONFIG: ChunkingConfig = {
   chunkDuration: 5.0, // 5 second chunks
-  overlapDuration: 0.0 // No overlap for now
+  overlapDuration: 0.0, // No overlap for now
+  paddingDuration: 3.0 // 3 second padding on each side for inference
 };
 
 /**

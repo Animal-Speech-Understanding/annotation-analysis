@@ -17,8 +17,18 @@ export interface AudioChunk {
   endTime: number;
   /** Duration of this chunk (seconds) */
   duration: number;
-  /** Audio blob containing the chunk data */
+  /** Audio blob containing the chunk data (with padding) */
   audioBlob: Blob;
+  /** Start time of the padded chunk sent to API (seconds) */
+  paddedStartTime: number;
+  /** End time of the padded chunk sent to API (seconds) */
+  paddedEndTime: number;
+  /** Requested padding duration for each side (seconds) */
+  paddingDuration: number;
+  /** Actual left padding applied (may be less at start of audio) */
+  actualLeftPadding: number;
+  /** Actual right padding applied (may be less at end of audio) */
+  actualRightPadding: number;
 }
 
 /**
@@ -29,6 +39,8 @@ export interface ChunkingConfig {
   chunkDuration: number;
   /** Overlap between chunks in seconds (optional) */
   overlapDuration?: number;
+  /** Padding duration added to each side for inference (optional) */
+  paddingDuration?: number;
 }
 
 /**
@@ -42,7 +54,7 @@ export async function chunkAudio(
   audioElement: HTMLAudioElement,
   config: ChunkingConfig
 ): Promise<AudioChunk[]> {
-  const { chunkDuration, overlapDuration = 0 } = config;
+  const { chunkDuration, overlapDuration = 0, paddingDuration = 0 } = config;
 
   try {
     // Create an audio context for processing
@@ -66,20 +78,33 @@ export async function chunkAudio(
         break;
       }
 
-      // Extract this chunk
+      // Calculate padded time range for extraction
+      const paddedStartTime = Math.max(0, currentTime - paddingDuration);
+      const paddedEndTime = Math.min(totalDuration, endTime + paddingDuration);
+
+      // Extract this chunk with padding
       const chunkBlob = await extractAudioChunk(
         audioBuffer,
         audioContext,
-        currentTime,
-        endTime
+        paddedStartTime,
+        paddedEndTime
       );
+
+      // Calculate actual padding applied (may be less than requested at boundaries)
+      const actualLeftPadding = currentTime - paddedStartTime;
+      const actualRightPadding = paddedEndTime - endTime;
 
       chunks.push({
         index: chunkIndex,
         startTime: currentTime,
         endTime: endTime,
         duration: actualDuration,
-        audioBlob: chunkBlob
+        audioBlob: chunkBlob,
+        paddedStartTime: paddedStartTime,
+        paddedEndTime: paddedEndTime,
+        paddingDuration: paddingDuration,
+        actualLeftPadding: actualLeftPadding,
+        actualRightPadding: actualRightPadding
       });
 
       // Move to next chunk (with overlap consideration)
