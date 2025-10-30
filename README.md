@@ -16,8 +16,8 @@ real-time LSTM predictions.
 1. **Clone the repository**
 
 ```bash
-git clone <repository-url>
-cd sperm-whale-visualization
+git clone https://github.com/Animal-Speech-Understanding/annotation-analysis
+cd annotation-analysis
 ```
 
 2. **Install Node.js and npm**
