@@ -1,6 +1,6 @@
 /**
  * Real-time Prediction Manager Component
- * 
+ *
  * This component handles the orchestration of real-time audio processing,
  * chunking, prediction requests, and marker updates.
  */
@@ -8,11 +8,7 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { Selection, SelectionGroup } from './model/types';
 import { chunkAudio, ChunkingConfig } from '@/shared/stores/wavesurfer/audioChunking';
-import {
-  processChunksInRealtime,
-  ProcessingStatus,
-  PredictionConfig
-} from './api/predictionApi';
+import { processChunksInRealtime, ProcessingStatus, PredictionConfig } from './api/predictionApi';
 import { calculateEvaluationMetrics, formatEvaluationMetrics } from './utils/evaluationMetrics';
 
 /**
@@ -50,7 +46,7 @@ interface ProcessingState {
  */
 const DEFAULT_API_CONFIG: PredictionConfig = {
   apiUrl: 'http://localhost:8000/infer', // Default backend endpoint
-  timeout: 15000 // 15 second timeout per chunk
+  timeout: 15000, // 15 second timeout per chunk
 };
 
 /**
@@ -59,7 +55,7 @@ const DEFAULT_API_CONFIG: PredictionConfig = {
 const DEFAULT_CHUNKING_CONFIG: ChunkingConfig = {
   chunkDuration: 5.0, // 5 second chunks
   overlapDuration: 0.0, // No overlap for now
-  paddingDuration: 3.0 // 3 second padding on each side for inference
+  paddingDuration: 3.0, // 3 second padding on each side for inference
 };
 
 /**
@@ -71,7 +67,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
   onSelectionsUpdate,
   onStatusUpdate,
   apiConfig = DEFAULT_API_CONFIG,
-  selectionGroups = []
+  selectionGroups = [],
 }) => {
   const [processingState, setProcessingState] = useState<ProcessingState>({
     isProcessing: false,
@@ -79,7 +75,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
     error: null,
     canCancel: false,
     startTime: null,
-    endTime: null
+    endTime: null,
   });
 
   // Store accumulated selections as processing continues
@@ -90,52 +86,53 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
   /**
    * Handle chunk processing updates - markers appear immediately
    */
-  const handleChunkProcessed = useCallback((
-    chunkIndex: number,
-    newSelections: Selection[],
-    status: ProcessingStatus
-  ) => {
-    // Check for cancellation
-    if (shouldCancel.current) {
-      return;
-    }
+  const handleChunkProcessed = useCallback(
+    (chunkIndex: number, newSelections: Selection[], status: ProcessingStatus) => {
+      // Check for cancellation
+      if (shouldCancel.current) {
+        return;
+      }
 
-    // Add new selections to accumulated list (if any received)
-    if (newSelections.length > 0) {
-      accumulatedSelections.current.push(...newSelections);
+      // Add new selections to accumulated list (if any received)
+      if (newSelections.length > 0) {
+        accumulatedSelections.current.push(...newSelections);
 
-      // Immediately update markers on waveform (real-time display)
-      onSelectionsUpdate([...accumulatedSelections.current]);
+        // Immediately update markers on waveform (real-time display)
+        onSelectionsUpdate([...accumulatedSelections.current]);
 
-      console.log(`Chunk ${chunkIndex + 1} processed: ${newSelections.length} new predictions added`);
-    }
+        console.log(
+          `Chunk ${chunkIndex + 1} processed: ${newSelections.length} new predictions added`
+        );
+      }
 
-    // Update processing state
-    setProcessingState(prev => ({
-      ...prev,
-      status,
-      error: status.error || null
-    }));
+      // Update processing state
+      setProcessingState((prev) => ({
+        ...prev,
+        status,
+        error: status.error || null,
+      }));
 
-    // Call external status callback
-    if (onStatusUpdate) {
-      onStatusUpdate(status);
-    }
+      // Call external status callback
+      if (onStatusUpdate) {
+        onStatusUpdate(status);
+      }
 
-    // If there's an error, processing will stop automatically
-    if (status.error) {
-      console.warn(`Processing stopped at chunk ${chunkIndex + 1}: ${status.error}`);
-    }
-  }, [onSelectionsUpdate, onStatusUpdate]);
+      // If there's an error, processing will stop automatically
+      if (status.error) {
+        console.warn(`Processing stopped at chunk ${chunkIndex + 1}: ${status.error}`);
+      }
+    },
+    [onSelectionsUpdate, onStatusUpdate]
+  );
 
   /**
    * Start real-time prediction processing
    */
   const startProcessing = useCallback(async () => {
     if (!audioElement) {
-      setProcessingState(prev => ({
+      setProcessingState((prev) => ({
         ...prev,
-        error: 'No audio element available for processing'
+        error: 'No audio element available for processing',
       }));
       return;
     }
@@ -155,7 +152,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
         error: null,
         canCancel: true,
         startTime: Date.now(),
-        endTime: null
+        endTime: null,
       });
 
       console.log(`Starting real-time prediction processing for audio: ${audioId}`);
@@ -171,36 +168,32 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
 
       // Step 2: Process chunks sequentially (stops on first error)
       console.log('Starting sequential chunk processing...');
-      await processChunksInRealtime(
-        chunks,
-        apiConfig,
-        handleChunkProcessed,
-        audioId
-      );
+      await processChunksInRealtime(chunks, apiConfig, handleChunkProcessed, audioId);
 
       // Processing completed successfully (all chunks processed without errors)
       if (!shouldCancel.current) {
-        console.log(`Processing completed successfully. Total selections: ${accumulatedSelections.current.length}`);
-        setProcessingState(prev => ({
+        console.log(
+          `Processing completed successfully. Total selections: ${accumulatedSelections.current.length}`
+        );
+        setProcessingState((prev) => ({
           ...prev,
           isProcessing: false,
           canCancel: false,
           endTime: Date.now(),
-          error: null // Clear any previous errors on successful completion
+          error: null, // Clear any previous errors on successful completion
         }));
       }
-
     } catch (error) {
       // Processing stopped due to error in one of the chunks
       console.error('Processing stopped due to error:', error);
 
       if (!shouldCancel.current) {
-        setProcessingState(prev => ({
+        setProcessingState((prev) => ({
           ...prev,
           isProcessing: false,
           canCancel: false,
           endTime: Date.now(),
-          error: error instanceof Error ? error.message : 'Unknown processing error'
+          error: error instanceof Error ? error.message : 'Unknown processing error',
         }));
       }
     }
@@ -213,12 +206,12 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
     if (processingState.isProcessing && processingState.canCancel) {
       console.log('Cancelling real-time processing...');
       shouldCancel.current = true;
-      setProcessingState(prev => ({
+      setProcessingState((prev) => ({
         ...prev,
         isProcessing: false,
         canCancel: false,
         endTime: Date.now(),
-        error: 'Processing cancelled by user'
+        error: 'Processing cancelled by user',
       }));
     }
   }, [processingState.isProcessing, processingState.canCancel]);
@@ -234,7 +227,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
       error: null,
       canCancel: false,
       startTime: null,
-      endTime: Date.now()
+      endTime: Date.now(),
     });
     onSelectionsUpdate([]);
   }, [onSelectionsUpdate]);
@@ -251,28 +244,42 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
   // Calculate evaluation metrics when both ground truth and predictions exist
   const evaluationMetrics = useMemo(() => {
     // Find ground truth (True Clicks) and current predictions
-    const groundTruthGroup = selectionGroups.find(group => group.id === 'true');
+    const groundTruthGroup = selectionGroups.find((group) => group.id === 'true');
     const currentPredictions = accumulatedSelections.current;
 
-    if (groundTruthGroup && currentPredictions.length > 0) {
-      return calculateEvaluationMetrics(
-        groundTruthGroup.selections,
-        currentPredictions,
-        2, // 0.5ms tolerance as requested
-        audioId
-      );
+    if (!groundTruthGroup || !currentPredictions.length) {
+      return null;
     }
-    return null;
-  }, [selectionGroups, accumulatedSelections.current.length, audioId]);
+
+    // Filter ground truth selections for the current audio file
+    const groundTruthForCurrentAudio = groundTruthGroup.selections.filter(
+      (sel) => sel.audioId === audioId
+    );
+
+    // Only calculate metrics if there are ground truth selections for this audio file
+    if (groundTruthForCurrentAudio.length === 0) {
+      return null;
+    }
+
+    return calculateEvaluationMetrics(
+      groundTruthGroup.selections,
+      currentPredictions,
+      2, // 0.5ms tolerance as requested
+      audioId
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectionGroups, processingState.status, audioId]);
 
   return (
-    <div style={{
-      padding: '12px',
-      border: '1px solid #ddd',
-      borderRadius: '4px',
-      backgroundColor: '#f9f9f9',
-      marginBottom: '20px'
-    }}>
+    <div
+      style={{
+        padding: '12px',
+        border: '1px solid #ddd',
+        borderRadius: '4px',
+        backgroundColor: '#f9f9f9',
+        marginBottom: '20px',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
         <h4 style={{ margin: 0, color: '#FF9800' }}>Load LSTM Predictions</h4>
 
@@ -287,7 +294,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
             border: 'none',
             borderRadius: '4px',
             cursor: audioElement ? 'pointer' : 'not-allowed',
-            fontSize: '12px'
+            fontSize: '12px',
           }}
         >
           {processingState.isProcessing ? 'Cancel' : 'Start Processing'}
@@ -304,7 +311,7 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
-              fontSize: '12px'
+              fontSize: '12px',
             }}
           >
             Clear
@@ -315,10 +322,14 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
       {/* Status display */}
       {processingState.status && (
         <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-          Progress: {getProgressPercentage()}%
-          ({processingState.status.processedChunks}/{processingState.status.totalChunks} chunks)
+          Progress: {getProgressPercentage()}% ({processingState.status.processedChunks}/
+          {processingState.status.totalChunks} chunks)
           {processingState.isProcessing && (
-            <span> - Processing chunk {processingState.status.currentChunk + 1}... (markers appear immediately)</span>
+            <span>
+              {' '}
+              - Processing chunk {processingState.status.currentChunk + 1}... (markers appear
+              immediately)
+            </span>
           )}
         </div>
       )}
@@ -330,65 +341,65 @@ export const RealtimePredictionManager: React.FC<RealtimePredictionManagerProps>
 
       {/* Processing time display */}
       {processingState.startTime && processingState.endTime && (
-        <div style={{
-          fontSize: '12px',
-          color: '#666',
-          marginBottom: '4px',
-          padding: '6px 8px',
-          backgroundColor: '#F5F5F5',
-          borderRadius: '3px',
-          border: '1px solid #E0E0E0'
-        }}>
-          Processing time: {((processingState.endTime - processingState.startTime) / 1000).toFixed(3)} seconds
+        <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+          Processing time:{' '}
+          {((processingState.endTime - processingState.startTime) / 1000).toFixed(3)} seconds
         </div>
       )}
 
       {/* Evaluation metrics display */}
       {evaluationMetrics && (
-        <div style={{
-          fontSize: '12px',
-          color: '#2E7D32',
-          marginBottom: '4px',
-          padding: '6px 8px',
-          backgroundColor: '#E8F5E8',
-          borderRadius: '3px',
-          border: '1px solid #C8E6C9'
-        }}>
-          <strong>Evaluation vs True Clicks:</strong><br />
+        <div
+          style={{
+            fontSize: '12px',
+            color: '#2E7D32',
+            marginBottom: '4px',
+            padding: '6px 8px',
+            backgroundColor: '#E8F5E8',
+            borderRadius: '3px',
+            border: '1px solid #C8E6C9',
+          }}
+        >
+          <strong>Evaluation vs True Clicks:</strong>
+          <br />
           {formatEvaluationMetrics(evaluationMetrics)}
         </div>
       )}
 
       {/* Error display */}
       {processingState.error && (
-        <div style={{
-          fontSize: '12px',
-          color: '#f44336',
-          backgroundColor: '#ffebee',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          marginTop: '4px'
-        }}>
+        <div
+          style={{
+            fontSize: '12px',
+            color: '#f44336',
+            backgroundColor: '#ffebee',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            marginTop: '4px',
+          }}
+        >
           Error: {processingState.error}
         </div>
       )}
 
       {/* Processing indicator */}
       {processingState.isProcessing && (
-        <div style={{
-          width: '100%',
-          height: '4px',
-          backgroundColor: '#e0e0e0',
-          borderRadius: '2px',
-          marginTop: '8px',
-          overflow: 'hidden'
-        }}>
+        <div
+          style={{
+            width: '100%',
+            height: '4px',
+            backgroundColor: '#e0e0e0',
+            borderRadius: '2px',
+            marginTop: '8px',
+            overflow: 'hidden',
+          }}
+        >
           <div
             style={{
               width: `${getProgressPercentage()}%`,
               height: '100%',
               backgroundColor: '#2196F3',
-              transition: 'width 0.3s ease'
+              transition: 'width 0.3s ease',
             }}
           />
         </div>

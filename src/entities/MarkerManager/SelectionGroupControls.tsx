@@ -15,12 +15,12 @@ export const SelectionGroupControls: React.FC<SelectionGroupControlsProps> = ({
   selectionGroups,
   visibility,
   onVisibilityChange,
-  currentAudioId
+  currentAudioId,
 }) => {
   const handleCheckboxChange = (groupId: string) => {
     onVisibilityChange({
       ...visibility,
-      [groupId]: !visibility[groupId]
+      [groupId]: !visibility[groupId],
     });
   };
 
@@ -32,7 +32,7 @@ export const SelectionGroupControls: React.FC<SelectionGroupControlsProps> = ({
 
     // Filter selections to only include those from the current audio file
     // Now we can directly use the stored audioId or name field
-    return group.selections.filter(selection => {
+    return group.selections.filter((selection) => {
       // First try to use the dedicated audioId field
       if (selection.audioId) {
         return selection.audioId.toLowerCase() === currentAudioId.toLowerCase();
@@ -48,14 +48,20 @@ export const SelectionGroupControls: React.FC<SelectionGroupControlsProps> = ({
   };
 
   return (
-    <div style={{
-      margin: '10px 0 20px 0',
-      display: 'flex',
-      flexWrap: 'wrap',
-      gap: '12px'
-    }}>
-      {selectionGroups.map(group => {
+    <div
+      style={{
+        margin: '10px 0 20px 0',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '12px',
+      }}
+    >
+      {selectionGroups.map((group) => {
         const clickCount = getClickCountForCurrentAudio(group);
+
+        if (clickCount === 0) {
+          return null;
+        }
 
         return (
           <label
@@ -70,11 +76,11 @@ export const SelectionGroupControls: React.FC<SelectionGroupControlsProps> = ({
               transition: 'background-color 0.2s',
               backgroundColor: visibility[group.id] !== false ? '#f5f5f5' : '#e0e0e0',
               borderLeft: `4px solid ${group.color}`,
-              opacity: clickCount > 0 ? 1 : 0.7
+              opacity: clickCount > 0 ? 1 : 0.7,
             }}
           >
             <input
-              type="checkbox"
+              type='checkbox'
               checked={visibility[group.id] ?? true}
               onChange={() => handleCheckboxChange(group.id)}
               style={{ marginRight: '8px' }}
@@ -82,9 +88,7 @@ export const SelectionGroupControls: React.FC<SelectionGroupControlsProps> = ({
             <div>
               <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{group.name}</div>
               <div style={{ fontSize: '12px', color: '#666', marginTop: '2px' }}>
-                {clickCount > 0
-                  ? `${clickCount} clicks in this file`
-                  : 'No clicks in this file'}
+                {clickCount > 0 ? `${clickCount} clicks in this file` : 'No clicks in this file'}
               </div>
             </div>
           </label>
@@ -92,4 +96,4 @@ export const SelectionGroupControls: React.FC<SelectionGroupControlsProps> = ({
       })}
     </div>
   );
-}; 
+};

@@ -23,7 +23,9 @@ export const fetchSelections = async (selectionFile: SelectionFile): Promise<Sel
 /**
  * Fetches multiple selection files and organizes them into selection groups
  */
-export const fetchMultipleSelections = async (selectionFiles: SelectionFile[]): Promise<SelectionGroup[]> => {
+export const fetchMultipleSelections = async (
+  selectionFiles: SelectionFile[]
+): Promise<SelectionGroup[]> => {
   try {
     const selectionGroups: SelectionGroup[] = [];
 
@@ -35,18 +37,17 @@ export const fetchMultipleSelections = async (selectionFiles: SelectionFile[]): 
         name: file.name,
         color: file.color,
         description: file.description,
-        selections
+        selections,
       };
     });
 
     // Wait for all selection files to be processed
     const results = await Promise.all(promises);
 
-    // Add successful results to the selection groups
-    results.forEach(group => {
-      if (group.selections.length > 0) {
-        selectionGroups.push(group);
-      }
+    // Add all results to the selection groups (even if empty)
+    // This ensures groups exist for evaluation metrics calculations
+    results.forEach((group) => {
+      selectionGroups.push(group);
     });
 
     return selectionGroups;
@@ -81,7 +82,7 @@ const parseClickTimestamps = (data: string, selectionFile: SelectionFile): Selec
         const fileName = match[2];
         const timestampsJson = match[3];
 
-        // Parse the JSON array of timestamps 
+        // Parse the JSON array of timestamps
         const timestamps = JSON.parse(timestampsJson);
 
         // Extract the audio ID from the filename (remove file extension)
@@ -96,7 +97,7 @@ const parseClickTimestamps = (data: string, selectionFile: SelectionFile): Selec
             source: selectionFile.id,
             color: selectionFile.color,
             name: fileName, // Store the full filename for easier filtering
-            audioId: audioId // Store the audio ID directly for filtering
+            audioId: audioId, // Store the audio ID directly for filtering
           });
         });
       }
@@ -142,4 +143,4 @@ const parseSelections = (data: string): Selection[] => {
 
   return parsedSelections;
 };
-*/ 
+*/

@@ -8,8 +8,8 @@ export interface SelectionFile {
 
 export interface AudioFile {
   id: string;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   url: string;
 }
 
@@ -25,34 +25,46 @@ export interface AlgorithmConfig {
 export const audioFiles: AudioFile[] = [
   {
     id: '19620917a',
-    title: 'Sperm Whale Recording 1962-09-17A',
-    description: 'Early recording of sperm whale from the 1960s expeditions.',
-    url: '/static/audio/19620917a.wav'
+    title: 'Sperm Whale Recording 17-Sep-1962A',
+    description: 'Watkins Marine Mammal Sound Database',
+    url: '/static/audio/19620917a.wav',
   },
   {
     id: '19620917b',
-    title: 'Sperm Whale Recording 1962-09-17B',
-    description: 'Sperm whale vocalization recorded in the Gulf of Mexico. Contains multiple click patterns and codas.',
-    url: '/static/audio/19620917b.wav'
+    title: 'Sperm Whale Recording 17-Sep-1962B',
+    description: 'Watkins Marine Mammal Sound Database',
+    url: '/static/audio/19620917b.wav',
   },
   {
     id: '19720806f',
-    title: 'Sperm Whale Recording 1972-08-06F',
-    description: 'Secondary recording from the same session. Features different individuals and communication patterns.',
-    url: '/static/audio/19720806f.wav'
+    title: 'Sperm Whale Recording 6-Aug-1972F',
+    description: 'Watkins Marine Mammal Sound Database',
+    url: '/static/audio/19720806f.wav',
   },
   {
     id: '19840322a',
-    title: 'Sperm Whale Recording 1984-03-22A',
-    description: 'Recorded near Dominica. Notable for containing rare synchronized codas between multiple individuals.',
-    url: '/static/audio/19840322a.wav'
+    title: 'Sperm Whale Recording 22-Mar-1984A',
+    description: 'Watkins Marine Mammal Sound Database',
+    url: '/static/audio/19840322a.wav',
   },
   {
     id: '19911021b',
-    title: 'Sperm Whale Recording 1991-10-21B',
-    description: 'Recorded near Dominica. Notable for containing rare synchronized codas between multiple individuals.',
-    url: '/static/audio/19911021b.wav'
-  }
+    title: 'Sperm Whale Recording 21-Oct-1991B',
+    description: 'Watkins Marine Mammal Sound Database',
+    url: '/static/audio/19911021b.wav',
+  },
+  {
+    id: '94004005',
+    title: 'Sperm Whale Recording 05-May-1994',
+    url: '/static/audio/94004005.wav',
+    description: ' Watkins Marine Mammal Sound Database',
+  },
+  {
+    id: '75003044',
+    title: 'Common Dolphin Recording 8-Sep-1975',
+    url: '/static/audio/75003044.wav',
+    description: 'Watkins Marine Mammal Sound Database',
+  },
 ];
 
 // Detection algorithms with their respective selection files
@@ -62,24 +74,24 @@ export const detectionAlgorithms: AlgorithmConfig[] = [
     name: 'True Clicks',
     description: 'Hand-labeled click timestamps by marine biologists',
     color: '#4CAF50', // Green
-    selectionUrl: '/static/selections/watkins_5_trues.csv'
+    selectionUrl: '/static/selections/watkins_5_trues.csv',
   },
   {
     id: 'lstm',
     name: 'LSTM Preloaded',
     description: 'LSTM-based click detection',
     color: '#2196F3', // Blue
-    selectionUrl: '/static/selections/watkins_5_predictions.csv'
+    selectionUrl: '/static/selections/watkins_5_predictions.csv',
   },
 ];
 
 // Function to convert algorithm configs to selection files
 export const getSelectionFilesFromAlgorithms = (): SelectionFile[] => {
-  return detectionAlgorithms.map(algorithm => ({
+  return detectionAlgorithms.map((algorithm) => ({
     id: algorithm.id,
     name: algorithm.name,
     url: algorithm.selectionUrl,
     color: algorithm.color,
-    description: algorithm.description
+    description: algorithm.description,
   }));
-}; 
+};
